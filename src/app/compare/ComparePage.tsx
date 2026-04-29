@@ -10,7 +10,7 @@ import CompareCharts from "@/components/compare/CompareCharts";
 import { EmptyState, SkeletonGrid } from "@/components/compare/CompareStates";
 import { Calendar, X, Info, Layers } from "lucide-react";
 
-const MODERN_COLORS = ["#4F46E5", "#0EA5E9", "#64748B"];
+const MODERN_COLORS = ["#4F46E5", "#b0057a", "#14B8A6"];
 const MODERN_LIGHTS = ["#EEF2FF", "#F0F9FF", "#F8FAFC"];
 
 export default function ComparePage() {
