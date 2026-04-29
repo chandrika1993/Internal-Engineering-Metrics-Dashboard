@@ -1,3 +1,5 @@
+import { Activity, AlertCircle, GitMerge } from "lucide-react";
+
 export interface Team {
   id: number;
   name: string;
@@ -60,7 +62,7 @@ export interface PaginationMeta {
 }
 
 export interface SortParam {
-  id: string;       // column accessor key
+  id: string; // column accessor key
   desc: boolean;
 }
 
@@ -83,7 +85,9 @@ export interface RepoDetail {
   prsMerged7d: number;
   deploymentHistory: TrendPoint[];
   mergedPullRequests: RepoPullRequest[];
+  mergedPullRequestsTotal?: number;
   recentIncidents: Incident[];
+  recentIncidentsTotal?: number;
 }
 
 export const RANGE_LABELS = {
@@ -92,4 +96,17 @@ export const RANGE_LABELS = {
   monthly: "Last month",
   quarterly: "Last 3 months",
   yearly: "Last year",
-};
+} as const;
+
+export type DeploymentRange = keyof typeof RANGE_LABELS;
+
+export const TABS = [
+  { id: "velocity" as const, label: "Velocity", icon: Activity },
+  { id: "prs" as const, label: "Pull Requests", icon: GitMerge },
+  { id: "incidents" as const, label: "Incidents", icon: AlertCircle },
+];
+export type TabId = (typeof TABS)[number]["id"];
+
+export const TEAM_COLORS = ["#4F46E5", "#b0057a", "#14B8A6"] as const;
+export const TEAM_COLORS_LIGHT = ["#EEF2FF", "#F0F9FF", "#F8FAFC"] as const;
+export const TEAM_COLORS_BORDER = ["#C7D2FE", "#e0a8df", "#A7F3D0"] as const;

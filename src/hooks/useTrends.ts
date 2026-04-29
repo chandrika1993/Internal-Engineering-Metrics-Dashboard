@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { TrendPoint } from "@/types";
+import { fetchJSON, isAbortError } from "@/lib/fetchJSON";
 
 export function useTrends(
   metric: string,
@@ -15,31 +16,29 @@ export function useTrends(
 
   useEffect(() => {
     const controller = new AbortController();
+
     async function loadTrends() {
       try {
         setLoading(true);
         setError(null);
         const params = new URLSearchParams({ metric, from, to });
-        if (severity && severity !== "all") {
-          params.append("severity", severity);
-        }
-        const res = await fetch(`/api/metrics/trends?${params.toString()}`, {
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error("Failed to fetch trends");
-        setTrends(await res.json());
-      } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") return;
-        setError(
-          err instanceof Error ? err.message : "An unknown error occurred"
+        if (severity && severity !== "all") params.append("severity", severity);
+
+        const data = await fetchJSON<TrendPoint[]>(
+          `/api/metrics/trends?${params.toString()}`,
+          { signal: controller.signal }
         );
+        setTrends(data);
+      } catch (err) {
+        if (isAbortError(err)) return;
+        setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);
       }
     }
 
     loadTrends();
-    return () => controller.abort(); // Cleanup: abort any in-flight request when deps change or component unmounts
+    return () => controller.abort();
   }, [metric, from, to, severity]);
 
   return { trends, loading, error };

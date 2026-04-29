@@ -7,7 +7,21 @@ import {
 import { calcDeploys7d, calcPrsMerged7d } from "@/lib/repoMetrics";
 import { NextResponse } from "next/server";
 
-function getCutoff(range: string) {
+import type { DeploymentRange } from "@/types";
+
+const VALID_RANGES: readonly DeploymentRange[] = [
+  "7d",
+  "14d",
+  "monthly",
+  "quarterly",
+  "yearly",
+];
+
+function isValidRange(value: string): value is DeploymentRange {
+  return (VALID_RANGES as readonly string[]).includes(value);
+}
+
+function getCutoff(range: DeploymentRange): Date {
   const now = new Date();
   const cutoff = new Date();
 
@@ -47,7 +61,8 @@ export async function GET(
   }
 
   const { searchParams } = new URL(req.url);
-  const range = searchParams.get("range") || "14d";
+  const rawRange = searchParams.get("range") ?? "14d";
+  const range: DeploymentRange = isValidRange(rawRange) ? rawRange : "14d";
 
   const cutoff = getCutoff(range);
 

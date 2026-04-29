@@ -1,15 +1,12 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import KpiCard from "@/components/KpiCard";
-import { RANGE_LABELS, type RepoDetail } from "@/types";
+import { DeploymentRange, RANGE_LABELS, TabId, TABS, type RepoDetail } from "@/types";
 import DeploymentChart from "@/components/DeploymentChart";
 import Breadcrumb from "@/components/Breadcrumb";
 import {
-  GitMerge,
-  Activity,
-  AlertCircle,
   Clock,
   ChevronLeft,
   ChevronRight,
@@ -24,38 +21,46 @@ export default function RepositoryDetailPage() {
 
   const [repo, setRepo] = useState<RepoDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"velocity" | "prs" | "incidents">(
-    "velocity"
-  );
+  const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>("velocity");
 
   const [prPage, setPrPage] = useState(1);
   const [incidentPage, setIncidentPage] = useState(1);
 
-  const [deploymentRange, setDeploymentRange] = useState<
-    "7d" | "14d" | "monthly" | "quarterly" | "yearly"
-  >("7d");
+  const [deploymentRange, setDeploymentRange] = useState<DeploymentRange>("7d");
 
+  // Reset pagination only when the range changes — not on every fetch.
   useEffect(() => {
     setPrPage(1);
-  }, [deploymentRange, repo?.mergedPullRequests?.length]);
-
-  useEffect(() => {
     setIncidentPage(1);
-  }, [repo?.recentIncidents?.length]);
+  }, [deploymentRange]);
 
   useEffect(() => {
+    const controller = new AbortController();
     setLoading(true);
+    setError(null);
+    setNotFound(false);
 
     async function load() {
       try {
         const res = await fetch(
-          `/api/teams/${slug}/repos/${repoName}?range=${deploymentRange}`
+          `/api/teams/${slug}/repos/${repoName}?range=${deploymentRange}&prPage=${prPage}&incidentPage=${incidentPage}`,
+          { signal: controller.signal }
         );
 
-        if (!res.ok) throw new Error("Not found");
+        if (res.status === 404) {
+          setNotFound(true);
+          return;
+        }
+        if (!res.ok) {
+          throw new Error(`Failed to load repository (${res.status})`);
+        }
 
         setRepo(await res.json());
       } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        setError(err instanceof Error ? err.message : "Unknown error");
         console.error(err);
       } finally {
         setLoading(false);
@@ -63,41 +68,58 @@ export default function RepositoryDetailPage() {
     }
 
     load();
-  }, [slug, repoName, deploymentRange]);
+    return () => controller.abort();
+  }, [slug, repoName, deploymentRange, prPage, incidentPage]);
 
-  const paginatedPrs = useMemo(() => {
-    if (!repo) return [];
-    return repo.mergedPullRequests.slice(
-      (prPage - 1) * PAGE_SIZE,
-      prPage * PAGE_SIZE
-    );
-  }, [repo, prPage]);
+  // Server already paginates these arrays.
+  const paginatedPrs = repo?.mergedPullRequests ?? [];
+  const paginatedIncidents = repo?.recentIncidents ?? [];
 
-  const paginatedIncidents = useMemo(() => {
-    if (!repo) return [];
-    return repo.recentIncidents.slice(
-      (incidentPage - 1) * PAGE_SIZE,
-      incidentPage * PAGE_SIZE
-    );
-  }, [repo, incidentPage]);
-
-  if (loading)
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="w-8 h-8 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
       </div>
     );
+  }
 
-  if (!repo)
+  if (notFound) {
     return (
       <div className="p-10 text-slate-500 text-center font-medium">
         Repository not found.
       </div>
     );
+  }
 
+  if (error) {
+    return (
+      <div className="p-10 text-center">
+        <p className="text-rose-600 font-medium mb-2">
+          Failed to load repository
+        </p>
+        <p className="text-slate-500 text-sm mb-4">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!repo) return null;
+
+  // Note: this only counts active incidents on the current page.
+  // For a global count, expose `activeIncidentsTotal` from the API.
   const activeIncidentsCount = repo.recentIncidents.filter(
     (i) => i.status !== "resolved"
   ).length;
+
+  const totalPRs =
+    repo.mergedPullRequestsTotal ?? repo.mergedPullRequests.length;
+  const totalIncidents =
+    repo.recentIncidentsTotal ?? repo.recentIncidents.length;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -134,7 +156,7 @@ export default function RepositoryDetailPage() {
         <KpiCard title="PRs Merged (7d)" value={repo.prsMerged7d} />
         <KpiCard
           title="Historical Incidents"
-          value={repo.recentIncidents.length}
+          value={totalIncidents}
           rangeLabel={RANGE_LABELS[deploymentRange]}
         />
       </div>
@@ -144,7 +166,7 @@ export default function RepositoryDetailPage() {
           {Object.entries(RANGE_LABELS).map(([id, label]) => (
             <button
               key={id}
-              onClick={() => setDeploymentRange(id as any)}
+              onClick={() => setDeploymentRange(id as DeploymentRange)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 ${
                 deploymentRange === id
                   ? "bg-white text-slate-900 shadow-sm"
@@ -178,14 +200,10 @@ export default function RepositoryDetailPage() {
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="flex border-b border-slate-100 bg-slate-50/50 p-1 sm:p-2 overflow-x-auto">
-          {[
-            { id: "velocity", label: "Velocity", icon: Activity },
-            { id: "prs", label: "Pull Requests", icon: GitMerge },
-            { id: "incidents", label: "Incidents", icon: AlertCircle },
-          ].map((tab) => (
+          {TABS.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-3 py-2 sm:px-5 sm:py-2.5 rounded-2xl text-sm font-bold transition-all flex-shrink-0 ${
                 activeTab === tab.id
                   ? "bg-gradient-to-r from-indigo-500/10 to-indigo-50 text-indigo-700 shadow-sm border border-indigo-100"
@@ -228,68 +246,75 @@ export default function RepositoryDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {paginatedPrs.map((pr) => (
-                      <tr
-                        key={pr.id}
-                        className="hover:bg-indigo-50/30 transition-colors"
-                      >
-                        <td className="px-4 py-3">
-                          <div className="space-y-1">
-                            {/* Title */}
-                            <p className="text-sm font-semibold text-slate-800 leading-snug">
-                              {pr.title}
-                            </p>
-
-                            {/* Meta row */}
-                            <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
-                              <span className="flex items-center gap-1">
-                                <Clock size={12} className="text-slate-400" />
-                                {pr.mergedAt
-                                  ? new Date(pr.mergedAt).toLocaleDateString(
-                                      undefined,
-                                      {
-                                        year: "numeric",
-                                        month: "short",
-                                        day: "2-digit",
-                                      }
-                                    )
-                                  : "—"}
-                              </span>
-
-                              <span className="flex items-center gap-1 font-mono">
-                                <span className="text-emerald-600 font-semibold">
-                                  +{pr.additions}
-                                </span>
-                                <span className="text-rose-500 font-semibold">
-                                  -{pr.deletions}
-                                </span>
-                              </span>
-                            </div>
-                          </div>
+                    {paginatedPrs.length === 0 ? (
+                      <tr>
+                        <td className="px-4 py-10 text-center text-sm text-slate-400">
+                          No pull requests in this range.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      paginatedPrs.map((pr) => (
+                        <tr
+                          key={pr.id}
+                          className="hover:bg-indigo-50/30 transition-colors"
+                        >
+                          <td className="px-4 py-3">
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-slate-800 leading-snug">
+                                {pr.title}
+                              </p>
+
+                              <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+                                <span className="flex items-center gap-1">
+                                  <Clock
+                                    size={12}
+                                    className="text-slate-400"
+                                  />
+                                  {pr.mergedAt
+                                    ? new Date(pr.mergedAt).toLocaleDateString(
+                                        undefined,
+                                        {
+                                          year: "numeric",
+                                          month: "short",
+                                          day: "2-digit",
+                                        }
+                                      )
+                                    : "—"}
+                                </span>
+
+                                <span className="flex items-center gap-1 font-mono">
+                                  <span className="text-emerald-600 font-semibold">
+                                    +{pr.additions}
+                                  </span>
+                                  <span className="text-rose-500 font-semibold">
+                                    -{pr.deletions}
+                                  </span>
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
 
               <div className="p-4 flex items-center justify-between bg-slate-50/30 border-t border-slate-100">
-                <p className="text-xs text-slate-400">
-                  Total: {repo.mergedPullRequests.length} PRs
-                </p>
+                <p className="text-xs text-slate-400">Total: {totalPRs} PRs</p>
                 <div className="flex gap-1">
                   <button
-                    disabled={prPage === 1}
+                    disabled={prPage === 1 || loading}
                     onClick={() => setPrPage((p) => p - 1)}
+                    aria-label="Previous PR page"
                     className="p-2 rounded-lg border bg-white hover:bg-indigo-50 disabled:opacity-30"
                   >
                     <ChevronLeft size={16} />
                   </button>
                   <button
-                    disabled={
-                      prPage * PAGE_SIZE >= repo.mergedPullRequests.length
-                    }
+                    disabled={prPage * PAGE_SIZE >= totalPRs || loading}
                     onClick={() => setPrPage((p) => p + 1)}
+                    aria-label="Next PR page"
                     className="p-2 rounded-lg border bg-white hover:bg-indigo-50 disabled:opacity-30"
                   >
                     <ChevronRight size={16} />
@@ -301,104 +326,121 @@ export default function RepositoryDetailPage() {
 
           {activeTab === "incidents" && (
             <div className="p-4 sm:p-6 md:p-8 animate-in slide-in-from-bottom-2">
+              <div className="mb-4">
+                <h2 className="text-sm font-bold text-slate-700">
+                  Team-Level Incidents
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Incidents are tracked per team, not per repository. Showing
+                  all incidents for {repo.teamName}.
+                </p>
+              </div>
+
               <div className="space-y-6 relative">
                 <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-100" />
 
-                {paginatedIncidents.map((inc) => {
-                  const status = inc.status ?? "unknown";
-                  const isResolved = status === "resolved";
-                  return (
-                    <div
-                      key={inc.id}
-                      className="relative p-4 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm transition-all"
-                    >
-                      <div className="space-y-3">
-                        {/* HEADER */}
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1">
-                            <h3 className="text-sm font-medium text-slate-900 leading-snug">
-                              {inc.title}
-                            </h3>
+                {paginatedIncidents.length === 0 ? (
+                  <div className="py-10 text-center text-sm text-slate-400">
+                    No incidents in this range.
+                  </div>
+                ) : (
+                  paginatedIncidents.map((inc) => {
+                    const status = inc.status ?? "unknown";
 
-                            {/* meta */}
-                            <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
-                              <span className="flex items-center gap-1">
-                                <Clock size={12} />
-                                {new Date(inc.startedAt).toLocaleString()}
-                              </span>
+                    return (
+                      <div
+                        key={inc.id}
+                        className="relative p-4 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm transition-all"
+                      >
+                        <div className="space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="space-y-1">
+                              <h3 className="text-sm font-medium text-slate-900 leading-snug">
+                                {inc.title}
+                              </h3>
 
-                              {inc.resolvedAt && (
-                                <span className="flex items-center gap-1 text-emerald-600">
-                                  <ShieldCheck size={12} />
-                                  Resolved{" "}
-                                  {new Date(inc.resolvedAt).toLocaleString()}
+                              <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
+                                <span className="flex items-center gap-1">
+                                  <Clock size={12} />
+                                  {new Date(inc.startedAt).toLocaleString()}
                                 </span>
-                              )}
+
+                                {inc.resolvedAt && (
+                                  <span className="flex items-center gap-1 text-emerald-600">
+                                    <ShieldCheck size={12} />
+                                    Resolved{" "}
+                                    {new Date(
+                                      inc.resolvedAt
+                                    ).toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
                             </div>
+
+                            <span
+                              className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border ${
+                                inc.severity === "critical"
+                                  ? "text-rose-500 border-rose-200 bg-rose-50/40"
+                                  : inc.severity === "high"
+                                  ? "text-amber-600 border-amber-200 bg-amber-50/40"
+                                  : inc.severity === "medium"
+                                  ? "text-blue-600 border-blue-200 bg-blue-50/40"
+                                  : "text-slate-500 border-slate-200 bg-slate-50"
+                              }`}
+                            >
+                              {inc.severity}
+                            </span>
                           </div>
 
-                          <span
-                            className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border ${
-                              inc.severity === "critical"
-                                ? "text-rose-500 border-rose-200 bg-rose-50/40"
-                                : inc.severity === "high"
-                                ? "text-amber-600 border-amber-200 bg-amber-50/40"
-                                : inc.severity === "medium"
-                                ? "text-blue-600 border-blue-200 bg-blue-50/40"
-                                : "text-slate-500 border-slate-200 bg-slate-50"
-                            }`}
-                          >
-                            {inc.severity}
-                          </span>
-                        </div>
-
-                        {/* FOOTER */}
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                          <span
-                            className={`text-[11px] font-medium ${
-                              inc.status === "resolved"
-                                ? "text-emerald-600"
-                                : "text-slate-500"
-                            }`}
-                          >
-                            {status.toUpperCase()}
-                          </span>
-
-                          {inc.resolvedAt && (
-                            <span className="text-[11px] text-slate-400">
-                              MTTR{" "}
-                              {Math.round(
-                                (new Date(inc.resolvedAt).getTime() -
-                                  new Date(inc.startedAt).getTime()) /
-                                  36e5
-                              )}
-                              h
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                            <span
+                              className={`text-[11px] font-medium ${
+                                inc.status === "resolved"
+                                  ? "text-emerald-600"
+                                  : "text-slate-500"
+                              }`}
+                            >
+                              {status.toUpperCase()}
                             </span>
-                          )}
+
+                            {inc.resolvedAt && (
+                              <span className="text-[11px] text-slate-400">
+                                MTTR{" "}
+                                {Math.round(
+                                  (new Date(inc.resolvedAt).getTime() -
+                                    new Date(inc.startedAt).getTime()) /
+                                    36e5
+                                )}
+                                h
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
 
-              <div className="p-4 flex items-center justify-between bg-slate-50/30 border-t border-slate-100">
+              <div className="p-4 flex items-center justify-between bg-slate-50/30 border-t border-slate-100 mt-6">
                 <p className="text-xs text-slate-400">
-                  Total: {repo.recentIncidents.length}
+                  Total: {totalIncidents}
                 </p>
                 <div className="flex gap-1">
                   <button
-                    disabled={incidentPage === 1}
+                    disabled={incidentPage === 1 || loading}
                     onClick={() => setIncidentPage((p) => p - 1)}
+                    aria-label="Previous incident page"
                     className="p-2 rounded-lg border bg-white hover:bg-indigo-50 disabled:opacity-30"
                   >
                     <ChevronLeft size={16} />
                   </button>
                   <button
                     disabled={
-                      incidentPage * PAGE_SIZE >= repo.recentIncidents.length
+                      incidentPage * PAGE_SIZE >= totalIncidents || loading
                     }
                     onClick={() => setIncidentPage((p) => p + 1)}
+                    aria-label="Next incident page"
                     className="p-2 rounded-lg border bg-white hover:bg-indigo-50 disabled:opacity-30"
                   >
                     <ChevronRight size={16} />
