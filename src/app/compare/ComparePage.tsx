@@ -3,15 +3,17 @@
 import { useEffect, useState } from "react";
 import { useDateRange } from "@/hooks/useDateRange";
 import DateRangePicker from "@/components/DateRangePicker";
-import type { TeamDetail, TrendPoint } from "@/types";
+import {
+  TEAM_COLORS,
+  TEAM_COLORS_LIGHT,
+  type TeamDetail,
+  type TrendPoint,
+} from "@/types";
 import TeamSelector from "@/components/compare/TeamSelector";
 import CompareKpiGrid from "@/components/compare/CompareKpiGrid";
 import { EmptyState, SkeletonGrid } from "@/components/compare/CompareStates";
 import { Calendar, Layers } from "lucide-react";
 import CompareCharts from "@/components/compare/CompareCharts";
-
-const MODERN_COLORS = ["#4F46E5", "#b0057a", "#14B8A6"];
-const MODERN_LIGHTS = ["#EEF2FF", "#F0F9FF", "#F8FAFC"];
 
 export default function ComparePage() {
   const { from, to, setRange } = useDateRange();
@@ -115,8 +117,8 @@ export default function ComparePage() {
 
   const teamsWithColor = teamDetails.map((d, i) => ({
     detail: d,
-    color: MODERN_COLORS[i],
-    lightColor: MODERN_LIGHTS[i],
+    color: TEAM_COLORS[i],
+    lightColor: TEAM_COLORS_LIGHT[i],
   }));
 
   return (

@@ -1,8 +1,9 @@
 import {
   getRepoBySlugAndName,
   getRepoDeploymentHistory,
-  getRepoIncidents,
+  getRepoIncidentsPaginated,
   getRepoMergedPRs,
+  getRepoMergedPRsPaginated,
 } from "@/lib/repos";
 import { calcDeploys7d, calcPrsMerged7d } from "@/lib/repoMetrics";
 import { NextResponse } from "next/server";
@@ -17,33 +18,50 @@ const VALID_RANGES: readonly DeploymentRange[] = [
   "yearly",
 ];
 
+const PAGE_SIZE = 10;
+
 function isValidRange(value: string): value is DeploymentRange {
   return (VALID_RANGES as readonly string[]).includes(value);
 }
 
 function getCutoff(range: DeploymentRange): Date {
-  const now = new Date();
   const cutoff = new Date();
+  cutoff.setUTCHours(0, 0, 0, 0);
 
   switch (range) {
     case "7d":
-      cutoff.setDate(now.getDate() - 7);
+      cutoff.setUTCDate(cutoff.getUTCDate() - 7);
       break;
     case "14d":
-      cutoff.setDate(now.getDate() - 14);
+      cutoff.setUTCDate(cutoff.getUTCDate() - 14);
       break;
     case "monthly":
-      cutoff.setMonth(now.getMonth() - 1);
+      cutoff.setUTCMonth(cutoff.getUTCMonth() - 1);
       break;
     case "quarterly":
-      cutoff.setMonth(now.getMonth() - 3);
+      cutoff.setUTCMonth(cutoff.getUTCMonth() - 3);
       break;
     case "yearly":
-      cutoff.setFullYear(now.getFullYear() - 1);
+      cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 1);
       break;
   }
 
   return cutoff;
+}
+
+function rangeDays(range: DeploymentRange): number {
+  switch (range) {
+    case "7d":
+      return 7;
+    case "14d":
+      return 14;
+    case "monthly":
+      return 30;
+    case "quarterly":
+      return 90;
+    case "yearly":
+      return 365;
+  }
 }
 
 export async function GET(
@@ -55,44 +73,48 @@ export async function GET(
   const decodedTeamSlug = decodeURIComponent(slug);
 
   const repo = await getRepoBySlugAndName(decodedTeamSlug, decodedRepoName);
-
   if (!repo) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const { searchParams } = new URL(req.url);
+
   const rawRange = searchParams.get("range") ?? "14d";
   const range: DeploymentRange = isValidRange(rawRange) ? rawRange : "14d";
 
-  const cutoff = getCutoff(range);
+  const prPage = Math.max(1, Number(searchParams.get("prPage") ?? 1) || 1);
+  const incidentPage = Math.max(
+    1,
+    Number(searchParams.get("incidentPage") ?? 1) || 1
+  );
 
-  const [rawDeployments, rawPRs, recentIncidents] = await Promise.all([
+  const cutoff = getCutoff(range);
+  const sevenDayCutoff = new Date();
+  sevenDayCutoff.setUTCDate(sevenDayCutoff.getUTCDate() - 7);
+
+  const [
+    rawDeployments,
+    recentDeploysFor7d,
+    recentPRsFor7d,
+    pagedPRs,
+    pagedIncidents,
+  ] = await Promise.all([
     getRepoDeploymentHistory(repo.id, cutoff),
-    getRepoMergedPRs(repo.id, cutoff),
-    getRepoIncidents(repo.id, cutoff),
+    getRepoDeploymentHistory(repo.id, sevenDayCutoff),
+    getRepoMergedPRs(repo.id, sevenDayCutoff),
+    getRepoMergedPRsPaginated(repo.id, cutoff, prPage, PAGE_SIZE),
+    getRepoIncidentsPaginated(repo.id, cutoff, incidentPage, PAGE_SIZE),
   ]);
 
-  // --- FIX FOR DEPLOYMENT CHART ---
-  // 1. Create a map of the last 14 days initialized to 0
+  // Bucket deployments into daily totals for the chart.
   const historyMap = new Map<string, number>();
-  const rangeDays =
-    range === "7d"
-      ? 7
-      : range === "14d"
-      ? 14
-      : range === "monthly"
-      ? 30
-      : range === "quarterly"
-      ? 90
-      : 365;
-  for (let i = rangeDays - 1; i >= 0; i--) {
+  const days = rangeDays(range);
+  for (let i = days - 1; i >= 0; i--) {
     const d = new Date();
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split("T")[0];
-    historyMap.set(dateStr, 0);
+    d.setUTCDate(d.getUTCDate() - i);
+    historyMap.set(d.toISOString().split("T")[0], 0);
   }
 
-  // 2. Aggregate raw deployments into the daily buckets
   rawDeployments.forEach((dep) => {
     const dateStr = new Date(dep.deployedAt).toISOString().split("T")[0];
     if (historyMap.has(dateStr)) {
@@ -100,23 +122,31 @@ export async function GET(
     }
   });
 
-  // 3. Convert map back to the TrendPoint format the chart expects
-  const deploymentHistory = Array.from(historyMap).map(([date, value]) => ({
+  const deploymentHistory = Array.from(historyMap, ([date, value]) => ({
     date,
     value,
   }));
 
-  const mergedPullRequests = rawPRs.map((pr) => ({
+  const mergedPullRequests = pagedPRs.rows.map((pr) => ({
     ...pr,
     mergedAt: pr.mergedAt ? new Date(pr.mergedAt).toISOString() : null,
   }));
 
+  const recentIncidents = pagedIncidents.rows.map((inc) => ({
+    ...inc,
+    startedAt: new Date(inc.startedAt).toISOString(),
+    resolvedAt: inc.resolvedAt ? new Date(inc.resolvedAt).toISOString() : null,
+  }));
+
   return NextResponse.json({
     ...repo,
-    deploys7d: calcDeploys7d(rawDeployments),
-    prsMerged7d: calcPrsMerged7d(rawPRs),
-    deploymentHistory, // Now sending daily totals instead of hundreds of raw rows
+    deploys7d: calcDeploys7d(recentDeploysFor7d),
+    prsMerged7d: calcPrsMerged7d(recentPRsFor7d),
+    deploymentHistory,
     mergedPullRequests,
+    mergedPullRequestsTotal: pagedPRs.total,
     recentIncidents,
+    recentIncidentsTotal: pagedIncidents.total,
+    activeIncidentsTotal: pagedIncidents.activeTotal,
   });
 }

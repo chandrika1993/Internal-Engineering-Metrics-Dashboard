@@ -28,13 +28,36 @@ import {
   inArray,
 } from "drizzle-orm";
 
+/**
+ * Parses optional ISO date strings (YYYY-MM-DD) into a UTC-aligned date window.
+ *
+ * Both supplied and default branches snap to UTC day boundaries so the window
+ * semantics are identical regardless of whether the caller passes explicit
+ * dates. Defaults are last 30 full days through end-of-today (UTC).
+ *
+ * Note: All comparisons are UTC. Users in non-UTC timezones may see a small
+ * boundary effect at midnight local time. Acceptable for an internal tool;
+ * documented here so it isn't rediscovered later.
+ */
 function parseDateRange(from?: string, to?: string) {
-  return {
-    fromDate: from
-      ? new Date(`${from}T00:00:00.000Z`)
-      : new Date(Date.now() - 30 * 86400000),
-    toDate: to ? new Date(`${to}T23:59:59.999Z`) : new Date(),
-  };
+  const toDate = to
+    ? new Date(`${to}T23:59:59.999Z`)
+    : (() => {
+        const d = new Date();
+        d.setUTCHours(23, 59, 59, 999);
+        return d;
+      })();
+
+  const fromDate = from
+    ? new Date(`${from}T00:00:00.000Z`)
+    : (() => {
+        const d = new Date();
+        d.setUTCDate(d.getUTCDate() - 30);
+        d.setUTCHours(0, 0, 0, 0);
+        return d;
+      })();
+
+  return { fromDate, toDate };
 }
 
 /**

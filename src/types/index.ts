@@ -1,3 +1,4 @@
+import { Severity } from "@/lib/severity";
 import { Activity, AlertCircle, GitMerge } from "lucide-react";
 
 export interface Team {
@@ -25,7 +26,7 @@ export interface OverviewMetrics {
 export interface TrendPoint {
   date: string;
   value: number;
-  severity?: "critical" | "high" | "medium" | "low";
+  severity?: Severity;
 }
 
 export interface TrendSeries {
@@ -36,7 +37,7 @@ export interface TrendSeries {
 export interface Incident {
   id: number;
   title: string | null;
-  severity: string;
+  severity: Severity;
   startedAt: string;
   resolvedAt: string | null;
   status: string | null;
@@ -88,6 +89,7 @@ export interface RepoDetail {
   mergedPullRequestsTotal?: number;
   recentIncidents: Incident[];
   recentIncidentsTotal?: number;
+  activeIncidentsTotal?: number;
 }
 
 export const RANGE_LABELS = {
@@ -108,5 +110,5 @@ export const TABS = [
 export type TabId = (typeof TABS)[number]["id"];
 
 export const TEAM_COLORS = ["#4F46E5", "#b0057a", "#14B8A6"] as const;
-export const TEAM_COLORS_LIGHT = ["#EEF2FF", "#F0F9FF", "#F8FAFC"] as const;
+export const TEAM_COLORS_LIGHT = ["#EEF2FF", "#faf0ff", "#F8FAFC"] as const;
 export const TEAM_COLORS_BORDER = ["#C7D2FE", "#e0a8df", "#A7F3D0"] as const;
