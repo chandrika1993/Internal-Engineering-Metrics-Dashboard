@@ -110,11 +110,7 @@ export default function RepositoryDetailPage() {
 
   if (!repo) return null;
 
-  // Note: this only counts active incidents on the current page.
-  // For a global count, expose `activeIncidentsTotal` from the API.
-  const activeIncidentsCount = repo.recentIncidents.filter(
-    (i) => i.status !== "resolved"
-  ).length;
+  const activeIncidentsCount = repo.activeIncidentsTotal ?? 0;
 
   const totalPRs =
     repo.mergedPullRequestsTotal ?? repo.mergedPullRequests.length;
