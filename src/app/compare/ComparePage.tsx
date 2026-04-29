@@ -37,7 +37,7 @@ export default function ComparePage() {
           (d.data ?? []).map((t: any) => ({ slug: t.slug, name: t.name }))
         )
       );
-  }, []);
+  }, [from, to]);
 
   useEffect(() => {
     if (selectedSlugs.length === 0) {

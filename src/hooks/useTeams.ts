@@ -5,6 +5,16 @@ import { SortingState } from '@tanstack/react-table';
 import type { TeamWithStats } from '@/types';
 import { PAGE_SIZE } from '@/lib/utils';
 
+/**
+ * Encapsulates all teams list state: data fetching, pagination,
+ * sorting, searching, and department filtering.
+ *
+ * Design decision: page resets to 1 on any filter change to prevent
+ * the user landing on a page that no longer exists after narrowing results.
+ *
+ * Departments are fetched separately from the paginated results so the
+ * dropdown always shows all possible values, not just the current page's subset.
+ */
 export function useTeams(
   debouncedValue: string,
   department: string,
