@@ -1,12 +1,8 @@
 'use client';
 
+import { TEAM_COLORS, TEAM_COLORS_BORDER, TEAM_COLORS_LIGHT } from '@/types';
 import { CheckCircle2 } from 'lucide-react';
 
-const TEAM_COLORS = ["#6366F1", "#760455d4", "#14B8A6"];
-const TEAM_COLORS_LIGHT = ["#EEF2FF", "#f8eef5", "#F0FDFA"];
-const TEAM_COLORS_BORDER = ["#C7D2FE", "#e0a8df", "#A7F3D0"];
-
-export { TEAM_COLORS, TEAM_COLORS_LIGHT, TEAM_COLORS_BORDER };
 
 interface Props {
   allTeams: { slug: string; name: string }[];

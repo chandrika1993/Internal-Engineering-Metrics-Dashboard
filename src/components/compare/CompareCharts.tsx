@@ -2,17 +2,22 @@ import type { TrendPoint } from "@/types";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
+  TooltipProps,
 } from "recharts";
 
-function ChartTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
+function ChartTooltip({
+  active,
+  payload,
+  label,
+}: TooltipProps<number, string>) {
+  if (!active || !payload?.length || !label) return null;
 
   return (
     <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-lg text-sm">
       <p className="text-xs text-gray-400 mb-2">
         {new Date(label).toLocaleDateString("en-GB")}
       </p>
-      {payload.map((p: any) => (
+      {payload.map((p) => (
         <div key={p.dataKey} className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
           <span>{p.name}</span>
