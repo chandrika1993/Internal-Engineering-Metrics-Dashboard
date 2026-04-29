@@ -85,3 +85,11 @@ export interface RepoDetail {
   mergedPullRequests: RepoPullRequest[];
   recentIncidents: Incident[];
 }
+
+export const RANGE_LABELS = {
+  "7d": "Last 7 days",
+  "14d": "Last 14 days",
+  monthly: "Last month",
+  quarterly: "Last 3 months",
+  yearly: "Last year",
+};

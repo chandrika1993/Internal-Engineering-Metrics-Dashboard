@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import KpiCard from "@/components/KpiCard";
-import type { RepoDetail } from "@/types";
+import { RANGE_LABELS, type RepoDetail } from "@/types";
 import DeploymentChart from "@/components/DeploymentChart";
 import Breadcrumb from "@/components/Breadcrumb";
 import {
@@ -27,12 +27,25 @@ export default function RepositoryDetailPage() {
     "velocity"
   );
   const [prPage, setPrPage] = useState(1);
+  const [deploymentRange, setDeploymentRange] = useState<
+    "7d" | "14d" | "monthly" | "quarterly" | "yearly"
+  >("7d");
 
   useEffect(() => {
+    setPrPage(1);
+  }, [deploymentRange, repo?.mergedPullRequests?.length]);
+
+  useEffect(() => {
+    setLoading(true);
+
     async function load() {
       try {
-        const res = await fetch(`/api/teams/${slug}/repos/${repoName}`);
+        const res = await fetch(
+          `/api/teams/${slug}/repos/${repoName}?range=${deploymentRange}`
+        );
+
         if (!res.ok) throw new Error("Not found");
+
         setRepo(await res.json());
       } catch (err) {
         console.error(err);
@@ -40,8 +53,9 @@ export default function RepositoryDetailPage() {
         setLoading(false);
       }
     }
+
     load();
-  }, [slug, repoName]);
+  }, [slug, repoName, deploymentRange]);
 
   const paginatedPrs = useMemo(() => {
     if (!repo) return [];
@@ -133,9 +147,25 @@ export default function RepositoryDetailPage() {
           title="Historical Incidents"
           value={repo.recentIncidents.length}
           loading={false}
+          rangeLabel={RANGE_LABELS[deploymentRange]}
         />
       </div>
 
+      <div className="flex flex-wrap gap-2 mb-6">
+        {Object.entries(RANGE_LABELS).map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setDeploymentRange(id as any)}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition ${
+              deploymentRange === id
+                ? "bg-indigo-600 text-white border-indigo-600"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {/* ─── TABBED CONTENT ─── */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="flex border-b border-slate-100 bg-slate-50/50 p-1 sm:p-2 overflow-x-auto">
@@ -169,7 +199,7 @@ export default function RepositoryDetailPage() {
                     Individual Deployment History
                   </h2>
                   <p className="text-xs sm:text-sm text-slate-500">
-                    Track production frequency over the last 14 days.
+                    Track production frequency over the {RANGE_LABELS[deploymentRange].toLowerCase()}
                   </p>
                 </div>
               </div>
@@ -181,10 +211,6 @@ export default function RepositoryDetailPage() {
           {activeTab === "prs" && (
             <div className="animate-in slide-in-from-bottom-2">
               <div className="overflow-x-auto">
-                {/* 
-    Mobile  (< sm): 2 cols — Title + Lines
-    Desktop (≥ sm): 3 cols — Title + Merged Date + Lines
-  */}
                 <table className="w-full text-left table-fixed">
                   <thead className="bg-slate-50/60 border-b border-slate-100">
                     <tr>
@@ -215,20 +241,22 @@ export default function RepositoryDetailPage() {
                           </p>
                           {/* Date shown inline under title on mobile only */}
                           <p className="mt-0.5 text-[11px] text-slate-400 sm:hidden">
-                            {new Date(pr.mergedAt).toLocaleDateString(
-                              undefined,
-                              {
-                                dateStyle: "medium",
-                              }
-                            )}
+                            {pr.mergedAt
+                              ? new Date(pr.mergedAt).toLocaleDateString()
+                              : "—"}
                           </p>
                         </td>
 
                         {/* Date column — hidden on mobile (shown in title cell instead) */}
                         <td className="hidden sm:table-cell px-6 py-3 sm:py-4 text-right text-xs text-slate-400 font-medium whitespace-nowrap">
-                          {new Date(pr.mergedAt).toLocaleDateString(undefined, {
-                            dateStyle: "medium",
-                          })}
+                          {pr.mergedAt
+                            ? new Date(pr.mergedAt).toLocaleDateString(
+                                undefined,
+                                {
+                                  dateStyle: "medium",
+                                }
+                              )
+                            : "—"}
                         </td>
 
                         {/* Lines badge */}

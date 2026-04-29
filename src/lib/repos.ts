@@ -1,11 +1,14 @@
 import { db } from "@/db";
-import { deployments, incidents, pullRequests, repositories, teams } from "@/db/schema";
+import {
+  deployments,
+  incidents,
+  pullRequests,
+  repositories,
+  teams,
+} from "@/db/schema";
 import { eq, and, desc, isNotNull, gte } from "drizzle-orm";
 
-export async function getRepoBySlugAndName(
-  teamSlug: string,
-  repoName: string
-) {
+export async function getRepoBySlugAndName(teamSlug: string, repoName: string) {
   const result = await db
     .select({
       id: repositories.id,
@@ -17,22 +20,13 @@ export async function getRepoBySlugAndName(
     })
     .from(repositories)
     .innerJoin(teams, eq(repositories.teamId, teams.id))
-    .where(
-      and(
-        eq(teams.slug, teamSlug),
-        eq(repositories.name, repoName)
-      )
-    )
+    .where(and(eq(teams.slug, teamSlug), eq(repositories.name, repoName)))
     .limit(1);
 
   return result[0] ?? null;
 }
 
-/**
- * Deployment history for a repository
- */
-export async function getRepoDeploymentHistory(repoId: number) {
-  const fourteenDaysAgo = new Date(Date.now() - 14 * 86400000);
+export async function getRepoDeploymentHistory(repoId: number, cutoff: Date) {
   return await db
     .select({
       id: deployments.id,
@@ -43,17 +37,16 @@ export async function getRepoDeploymentHistory(repoId: number) {
       status: deployments.status,
     })
     .from(deployments)
-    .where(and(
-      eq(deployments.repositoryId, repoId),
-      gte(deployments.deployedAt, fourteenDaysAgo)
-    ))
+    .where(
+      and(
+        eq(deployments.repositoryId, repoId),
+        gte(deployments.deployedAt, cutoff)
+      )
+    )
     .orderBy(desc(deployments.deployedAt));
 }
 
-/**
- * Merged PRs for a repository
- */
-export async function getRepoMergedPRs(repoId: number) {
+export async function getRepoMergedPRs(repoId: number, cutoff: Date) {
   return await db
     .select({
       id: pullRequests.id,
@@ -66,16 +59,14 @@ export async function getRepoMergedPRs(repoId: number) {
     .where(
       and(
         eq(pullRequests.repositoryId, repoId),
-        isNotNull(pullRequests.mergedAt) // <-- Filter out the nulls here
+        isNotNull(pullRequests.mergedAt),
+        gte(pullRequests.mergedAt, cutoff) // ALWAYS active
       )
     )
     .orderBy(desc(pullRequests.mergedAt));
 }
 
-/**
- * Incidents related to the repo's owning team
- */
-export async function getRepoIncidents(repoId: number) {
+export async function getRepoIncidents(repoId: number, cutoff: Date) {
   const repo = await db
     .select({
       teamId: repositories.teamId,
@@ -98,6 +89,11 @@ export async function getRepoIncidents(repoId: number) {
       status: incidents.status,
     })
     .from(incidents)
-    .where(eq(incidents.teamId, teamId))
+    .where(
+      and(
+        eq(incidents.teamId, teamId),
+        gte(incidents.startedAt, cutoff) // ✅ ADD THIS
+      )
+    )
     .orderBy(desc(incidents.startedAt));
 }
