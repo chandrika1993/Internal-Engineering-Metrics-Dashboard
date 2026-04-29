@@ -194,6 +194,16 @@ export default function TeamDetailPage() {
                           )}`
                         )
                       }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          router.push(
+                            `/teams/${params.slug}/repos/${encodeURIComponent(
+                              repo.name
+                            )}`
+                          );
+                        }
+                      }}
                       className="group hover:bg-slate-50/80 cursor-pointer transition-colors"
                     >
                       <td className="px-4 sm:px-6 py-4 min-w-0">
