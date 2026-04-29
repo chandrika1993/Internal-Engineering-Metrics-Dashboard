@@ -6,12 +6,23 @@ import KpiCard from "@/components/KpiCard";
 import DeploymentChart from "@/components/DeploymentChart";
 import type { TeamDetail, TrendPoint } from "@/types";
 import Breadcrumb from "@/components/Breadcrumb";
-import { Layout, AlertCircle, Activity, ChevronRight } from "lucide-react";
+import {
+  Layout,
+  AlertCircle,
+  Activity,
+  ChevronRight,
+  ShieldCheck,
+} from "lucide-react";
 
+// This is the main detail page for a specific team.
+// It fetches and displays team-specific data, including KPIs, deployment trends,
+// a list of repositories, and recent incidents.
 export default function TeamDetailPage() {
+  // ─── HOOKS ───
   const params = useParams<{ slug: string }>();
   const router = useRouter();
 
+  // ─── STATE MANAGEMENT ───
   const [team, setTeam] = useState<TeamDetail | null>(null);
   const [deployTrends, setDeployTrends] = useState<TrendPoint[]>([]);
   const [teamLoading, setTeamLoading] = useState(true);
@@ -19,23 +30,26 @@ export default function TeamDetailPage() {
   const [trendsLoading, setTrendsLoading] = useState(true);
   const [trendsError, setTrendsError] = useState<string | null>(null);
 
+  // ─── DATA FETCHING ───
   useEffect(() => {
     if (!params?.slug) return;
 
+    // Fetches the main team details from the API.
     async function loadTeam() {
       try {
         setTeamLoading(true);
         setTeamError(null);
         const res = await fetch(`/api/teams/${params.slug}`);
-        if (!res.ok) throw new Error();
+        if (!res.ok) throw new Error("Team data could not be fetched.");
         setTeam(await res.json());
-      } catch {
-        setTeamError("Failed to load team profile");
+      } catch (err: any) {
+        setTeamError(err.message || "Failed to load team profile");
       } finally {
         setTeamLoading(false);
       }
     }
 
+    // Fetches the deployment trend data for the team.
     async function loadTrends() {
       try {
         setTrendsLoading(true);
@@ -43,10 +57,10 @@ export default function TeamDetailPage() {
         const res = await fetch(
           `/api/metrics/trends?metric=deployments&team=${params.slug}`
         );
-        if (!res.ok) throw new Error();
+        if (!res.ok) throw new Error("Deployment trends could not be loaded.");
         setDeployTrends(await res.json());
-      } catch {
-        setTrendsError("Failed to load deployment trends");
+      } catch (err: any) {
+        setTrendsError(err.message || "Failed to load deployment trends");
       } finally {
         setTrendsLoading(false);
       }
@@ -56,17 +70,22 @@ export default function TeamDetailPage() {
     loadTrends();
   }, [params?.slug]);
 
-  // ── Loading ──
-  if (teamLoading)
+  // ─── RENDER STATES ───
+
+  // Loading state for the main team data.
+  if (teamLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-400 p-8">
         <div className="w-6 h-6 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin mb-4" />
-        <p className="text-sm font-medium animate-pulse">Loading team profile…</p>
+        <p className="text-sm font-medium animate-pulse">
+          Loading team profile…
+        </p>
       </div>
     );
+  }
 
-  // ── Error ──
-  if (teamError || !team)
+  // Error state if team data fails to load or doesn't exist.
+  if (teamError || !team) {
     return (
       <div className="p-8 text-center">
         <p className="text-rose-500 font-semibold text-sm">
@@ -74,30 +93,31 @@ export default function TeamDetailPage() {
         </p>
       </div>
     );
+  }
 
+  // ─── MAIN RENDER ───
   return (
-    <div className="max-w-7xl mx-auto px-4 py-5 sm:px-6 sm:py-7 md:px-8 md:py-8 lg:px-10 lg:py-10 space-y-6 sm:space-y-8 lg:space-y-10 animate-in fade-in duration-500">
-
-      {/* ── HEADER ── */}
-      <header className="space-y-2 sm:space-y-3">
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Page Header: Breadcrumbs and Title */}
+      <header className="space-y-3">
         <Breadcrumb
           items={[
             { label: "Dashboard", href: "/" },
             { label: team.name || params?.slug },
           ]}
         />
-        <div className="space-y-0.5 sm:space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 truncate">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 truncate">
             {team.name}
           </h1>
-          <p className="text-[11px] sm:text-xs font-semibold text-slate-400 uppercase tracking-widest">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
             {team.department} Department
           </p>
         </div>
       </header>
 
-      {/* ── KPI CARDS ── */}
-      <div className="grid grid-cols-1 xs:grid-cols-3 gap-3 sm:gap-4 sm:gap-5">
+      {/* Key Performance Indicators */}
+      <div className="grid grid-cols-1 xs:grid-cols-3 gap-4">
         <KpiCard
           loading={teamLoading}
           error={teamError}
@@ -118,10 +138,10 @@ export default function TeamDetailPage() {
         />
       </div>
 
-      {/* ── DEPLOYMENT CHART ── */}
+      {/* Deployment Trend Chart */}
       <section className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[28px] border border-slate-200 shadow-sm">
         <div className="flex items-center justify-between mb-4 sm:mb-6 gap-3">
-          <h2 className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
             <Activity size={16} className="text-indigo-500 shrink-0" />
             Deployment Trend
           </h2>
@@ -136,9 +156,9 @@ export default function TeamDetailPage() {
         />
       </section>
 
-      {/* ── REPOSITORIES TABLE ── */}
-      <section className="space-y-3 sm:space-y-4">
-        <h2 className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+      {/* Repositories Table */}
+      <section className="space-y-4">
+        <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
           <Layout size={16} className="text-slate-400 shrink-0" />
           Repositories
         </h2>
@@ -149,20 +169,16 @@ export default function TeamDetailPage() {
               <table className="w-full text-left table-fixed">
                 <thead className="bg-slate-50/60 border-b border-slate-100">
                   <tr>
-                    {/* Name always visible */}
-                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-left">
+                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider text-left">
                       Name
                     </th>
-                    {/* Language hidden on smallest screens */}
-                    <th className="hidden xs:table-cell px-4 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider w-[100px] sm:w-[120px]">
+                    <th className="hidden xs:table-cell px-4 sm:px-6 py-3 sm:py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider w-[100px] sm:w-[120px]">
                       Language
                     </th>
-                    {/* Deploys */}
-                    <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right w-[70px] sm:w-[110px] whitespace-nowrap">
+                    <th className="px-3 sm:px-6 py-3 sm:py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right w-[70px] sm:w-[110px] whitespace-nowrap">
                       Deploys
                     </th>
-                    {/* PRs hidden on mobile, shown sm+ */}
-                    <th className="hidden sm:table-cell px-6 py-3 sm:py-4 text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right w-[90px]">
+                    <th className="hidden sm:table-cell px-6 py-3 sm:py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right w-[90px]">
                       PRs (7d)
                     </th>
                   </tr>
@@ -173,15 +189,16 @@ export default function TeamDetailPage() {
                       key={repo.name}
                       onClick={() =>
                         router.push(
-                          `/teams/${params.slug}/repos/${encodeURIComponent(repo.name)}`
+                          `/teams/${params.slug}/repos/${encodeURIComponent(
+                            repo.name
+                          )}`
                         )
                       }
                       className="group hover:bg-slate-50/80 cursor-pointer transition-colors"
                     >
-                      {/* Name — on mobile shows language + PRs as subtext */}
-                      <td className="px-4 sm:px-6 py-3 sm:py-4 min-w-0">
+                      <td className="px-4 sm:px-6 py-4 min-w-0">
                         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                          <span className="text-xs sm:text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors truncate">
+                          <span className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors truncate">
                             {repo.name}
                           </span>
                           <ChevronRight
@@ -189,26 +206,23 @@ export default function TeamDetailPage() {
                             className="text-slate-300 group-hover:translate-x-0.5 transition-transform shrink-0"
                           />
                         </div>
-                        {/* Mobile-only subtext: language + PRs */}
                         <p className="xs:hidden mt-0.5 text-[11px] text-slate-400 font-medium">
-                          {repo.language || "Native"} &nbsp;·&nbsp; {repo.prsMerged7d} PRs
+                          {repo.language || "Native"} &nbsp;·&nbsp;{" "}
+                          {repo.prsMerged7d} PRs
                         </p>
                       </td>
 
-                      {/* Language badge — hidden on < xs */}
-                      <td className="hidden xs:table-cell px-4 sm:px-6 py-3 sm:py-4">
-                        <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded uppercase">
+                      <td className="hidden xs:table-cell px-4 sm:px-6 py-4">
+                        <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded uppercase">
                           {repo.language || "Native"}
                         </span>
                       </td>
 
-                      {/* Deploys — always visible */}
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-right font-medium text-slate-600 tabular-nums">
+                      <td className="px-3 sm:px-6 py-4 text-sm text-right font-medium text-slate-600 tabular-nums">
                         {repo.deploys7d}
                       </td>
 
-                      {/* PRs — hidden on mobile (shown in name subtext) */}
-                      <td className="hidden sm:table-cell px-6 py-3 sm:py-4 text-xs sm:text-sm text-right font-medium text-slate-600 tabular-nums">
+                      <td className="hidden sm:table-cell px-6 py-4 text-sm text-right font-medium text-slate-600 tabular-nums">
                         {repo.prsMerged7d}
                       </td>
                     </tr>
@@ -218,15 +232,15 @@ export default function TeamDetailPage() {
             </div>
           ) : (
             <div className="p-8 text-center text-sm text-slate-400 font-medium italic">
-              No active repositories found
+              No active repositories found for this team.
             </div>
           )}
         </div>
       </section>
 
-      {/* ── INCIDENTS TABLE ── */}
-      <section className="space-y-3 sm:space-y-4">
-        <h2 className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+      {/* Recent Incidents Table */}
+      <section className="space-y-4">
+        <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
           <AlertCircle size={16} className="text-rose-500 shrink-0" />
           Recent Incidents
         </h2>
@@ -237,20 +251,16 @@ export default function TeamDetailPage() {
               <table className="w-full text-left table-fixed">
                 <thead className="bg-slate-50/60 border-b border-slate-100">
                   <tr>
-                    {/* Title always visible */}
-                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                       Incident
                     </th>
-                    {/* Severity always visible but compact on mobile */}
-                    <th className="px-3 sm:px-6 py-3 sm:py-4 text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider w-[80px] sm:w-[100px]">
+                    <th className="px-3 sm:px-6 py-3 sm:py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider w-[80px] sm:w-[100px]">
                       Severity
                     </th>
-                    {/* Status hidden on mobile — shown in title subtext */}
-                    <th className="hidden sm:table-cell px-6 py-3 sm:py-4 text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider w-[100px]">
+                    <th className="hidden sm:table-cell px-6 py-3 sm:py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider w-[100px]">
                       Status
                     </th>
-                    {/* Date hidden on mobile */}
-                    <th className="hidden sm:table-cell px-6 py-3 sm:py-4 text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right w-[110px]">
+                    <th className="hidden sm:table-cell px-6 py-3 sm:py-4 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right w-[110px]">
                       Started
                     </th>
                   </tr>
@@ -261,12 +271,10 @@ export default function TeamDetailPage() {
                       key={inc.id}
                       className="hover:bg-slate-50/60 transition-colors"
                     >
-                      {/* Title — mobile also shows status + date as subtext */}
-                      <td className="px-4 sm:px-6 py-3 sm:py-4 min-w-0">
-                        <p className="text-xs sm:text-sm font-bold text-slate-700 truncate">
+                      <td className="px-4 sm:px-6 py-4 min-w-0">
+                        <p className="text-sm font-bold text-slate-700 truncate">
                           {inc.title}
                         </p>
-                        {/* Mobile-only subtext: status + date */}
                         <div className="sm:hidden mt-0.5 flex items-center gap-2 text-[11px] text-slate-400 font-medium">
                           <div
                             className={`w-1.5 h-1.5 rounded-full shrink-0 ${
@@ -283,10 +291,9 @@ export default function TeamDetailPage() {
                         </div>
                       </td>
 
-                      {/* Severity badge — always visible */}
-                      <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      <td className="px-3 sm:px-6 py-4">
                         <span
-                          className={`inline-block px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-bold uppercase tracking-wide border ${
+                          className={`inline-block px-1.5 sm:px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide border ${
                             inc.severity === "critical"
                               ? "bg-rose-50 text-rose-700 border-rose-100"
                               : inc.severity === "high"
@@ -300,8 +307,7 @@ export default function TeamDetailPage() {
                         </span>
                       </td>
 
-                      {/* Status — hidden on mobile */}
-                      <td className="hidden sm:table-cell px-6 py-3 sm:py-4">
+                      <td className="hidden sm:table-cell px-6 py-4">
                         <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-tighter">
                           <div
                             className={`w-1.5 h-1.5 rounded-full shrink-0 ${
@@ -314,8 +320,7 @@ export default function TeamDetailPage() {
                         </div>
                       </td>
 
-                      {/* Date — hidden on mobile */}
-                      <td className="hidden sm:table-cell px-6 py-3 sm:py-4 text-xs sm:text-sm text-right text-slate-400 font-medium tabular-nums whitespace-nowrap">
+                      <td className="hidden sm:table-cell px-6 py-4 text-sm text-right text-slate-400 font-medium tabular-nums whitespace-nowrap">
                         {new Date(inc.startedAt).toLocaleDateString()}
                       </td>
                     </tr>
@@ -324,13 +329,20 @@ export default function TeamDetailPage() {
               </table>
             </div>
           ) : (
-            <div className="p-8 text-center text-sm text-slate-400 font-medium italic">
-              No recent incidents reported
+            <div className="py-12 sm:py-16 flex flex-col items-center justify-center text-center space-y-4">
+              <div className="w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center">
+                <ShieldCheck size={32} />
+              </div>
+              <div className="space-y-1">
+                <p className="text-slate-900 font-bold">All Clear</p>
+                <p className="text-slate-400 text-xs px-4">
+                  No incidents have been recorded for this team recently.
+                </p>
+              </div>
             </div>
           )}
         </div>
       </section>
-
     </div>
   );
 }
