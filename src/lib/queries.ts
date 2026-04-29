@@ -27,6 +27,7 @@ import {
   isNotNull,
   inArray,
 } from "drizzle-orm";
+import { Severity } from "./severity";
 
 /**
  * Parses optional ISO date strings (YYYY-MM-DD) into a UTC-aligned date window.
@@ -543,7 +544,7 @@ export async function getTeamDetail(
     recentIncidents: recentIncidents.map((i) => ({
       id: i.id,
       title: i.title,
-      severity: i.severity,
+      severity: i.severity as Severity,
       startedAt: i.startedAt.toISOString(),
       resolvedAt: i.resolvedAt?.toISOString() ?? null,
       status: i.status,
