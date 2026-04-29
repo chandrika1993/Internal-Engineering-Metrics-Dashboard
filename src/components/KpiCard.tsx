@@ -2,55 +2,82 @@
 
 import { formatNumber, formatHours } from "@/lib/utils";
 import { SEVERITY_CONFIG, SeverityFilter } from "@/lib/severity";
+import {
+  BarChart2,
+  Clock,
+  GitMerge,
+  AlertTriangle,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
 interface KpiCardProps {
   title: string;
   value: number;
   format?: "number" | "hours";
-  subtitle?: string;
   severity?: SeverityFilter;
   loading?: boolean;
   error?: string | null;
 }
 
+const ICONS: Record<string, LucideIcon> = {
+  "Total Deployments": BarChart2,
+  "Deployments (7d)": BarChart2,
+  "Cycle Lead Time": Clock,
+  "PR Throughput": GitMerge,
+  "PRs Merged (7d)": GitMerge,
+  "Recorded Incidents": AlertTriangle,
+  "Incidents (7d)": AlertTriangle,
+};
+
 export default function KpiCard({
   title,
   value,
   format = "number",
-  subtitle,
   severity,
   loading,
   error,
 }: KpiCardProps) {
+  // ✅ LOADING STATE
   if (loading) {
-    return <div className="h-24 animate-pulse rounded-xl bg-gray-200" />;
+    return (
+      <div className="h-32 w-full animate-pulse rounded-2xl bg-slate-100" />
+    );
   }
 
+  // ❌ ERROR STATE
   if (error) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <div className="flex h-32 w-full items-center justify-center rounded-2xl border border-red-200 bg-red-50 p-4 text-center text-sm text-red-700 animate-in fade-in">
         Failed to load {title.toLowerCase()}
       </div>
     );
   }
+
   const display = format === "hours" ? formatHours(value) : formatNumber(value);
-  const severityStyle = severity ? SEVERITY_CONFIG[severity] : null;
+  const severityConfig = severity ? SEVERITY_CONFIG[severity] : null;
+  const Icon = ICONS[title];
 
   return (
-    <div
-      className={`bg-white rounded-lg border border-gray-200 p-6 ${
-        severityStyle ? severityStyle.borderClass : ""
-      }`}
-    >
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-gray-500">{title}</p>
-        {severityStyle && (
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-            {severityStyle.label}
+    <div className="flex h-32 w-full flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:shadow-md animate-in fade-in">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          {Icon && (
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+              <Icon size={20} strokeWidth={2.5} />
+            </div>
+          )}
+          <p className="text-base font-bold text-slate-800">{title}</p>
+        </div>
+        {severityConfig && (
+          <span
+            className={`text-[11px] font-bold px-2.5 py-1 rounded-full ring-1 ring-inset ${severityConfig.bgClass} ${severityConfig.textClass} ${severityConfig.ringClass}`}>
+            {severityConfig.label}
           </span>
         )}
       </div>
-      <p className="mt-2 text-3xl font-bold text-gray-900">{display}</p>
-      {subtitle && <p className="mt-1 text-sm text-gray-400">{subtitle}</p>}
+      <p className="text-4xl font-bold tracking-tight text-slate-900">
+        {display}
+      </p>
     </div>
   );
 }

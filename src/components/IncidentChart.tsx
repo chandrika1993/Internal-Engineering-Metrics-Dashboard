@@ -1,131 +1,108 @@
 "use client";
 
-import { useMemo } from "react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, TooltipProps } from 'recharts';
+import { SEVERITY_CONFIG } from '@/lib/severity';
 import type { TrendPoint } from "@/types";
-import { SEVERITY_CONFIG, type SeverityFilter } from "@/lib/severity";
+
+const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+  if (active && payload && payload.length) {
+    const formattedLabel = new Date(label).toLocaleDateString("en-US", { month: 'short', day: 'numeric' });
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-4 py-2">
+        <p className="font-bold text-gray-800">{formattedLabel}</p>
+        {payload.map((pld) => (
+          <div key={pld.dataKey} style={{ color: pld.color }}>
+            {`${pld.name}: ${pld.value}`}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
 
 interface IncidentChartProps {
   data: TrendPoint[];
-  severity: SeverityFilter;
   loading?: boolean;
   error?: string | null;
-  from?: string;
-  to?: string;
+  severity: 'all' | 'critical' | 'high' | 'medium' | 'low';
+  from: string;
+  to: string;
 }
+
+// Helper to process data for the chart
+const processDataForChart = (data: TrendPoint[]) => {
+  const groupedData: { [date: string]: any } = {};
+
+  data.forEach(item => {
+    if (!groupedData[item.date]) {
+      groupedData[item.date] = { date: item.date };
+    }
+    if (item.severity) {
+      groupedData[item.date][item.severity] = item.value;
+    }
+  });
+
+  return Object.values(groupedData);
+};
 
 export default function IncidentChart({
   data,
-  severity,
   loading,
   error,
-  from,
-  to,
+  severity
 }: IncidentChartProps) {
-  const chartData = useMemo(() => {
-    if (!data) return [];
-
-    // Build a complete list of week-start dates between from and to
-    const start = from ? new Date(from) : null;
-    const end = to ? new Date(to) : null;
-
-    const allWeeks: string[] = [];
-    if (start && end) {
-      const cursor = new Date(start);
-      // Align to Monday
-      cursor.setDate(cursor.getDate() - ((cursor.getDay() + 6) % 7));
-      while (cursor <= end) {
-        allWeeks.push(cursor.toISOString().split("T")[0]);
-        cursor.setDate(cursor.getDate() + 7);
-      }
-    }
-
-    const filtered =
-      severity !== "all" ? data.filter((d) => d.severity === severity) : data;
-
-    const aggregated = new Map<string, number>();
-
-    // Pre-fill all weeks with 0
-    for (const week of allWeeks) {
-      aggregated.set(week, 0);
-    }
-
-    // Fill in actual values
-    for (const point of filtered) {
-      aggregated.set(
-        point.date,
-        (aggregated.get(point.date) ?? 0) + point.value
-      );
-    }
-
-    return Array.from(aggregated.entries())
-      .map(([date, value]) => ({ date, value }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, [data, severity, from, to]);
-
-  const { color } = SEVERITY_CONFIG[severity];
-
-  // ✅ LOADING STATE
   if (loading) {
-    return <div className="h-64 animate-pulse rounded bg-gray-200" />;
+    return <div className="h-60 w-full animate-pulse rounded-md bg-slate-100" />;
   }
 
-  // ❌ ERROR STATE
   if (error) {
     return (
-      <div className="flex h-64 items-center justify-center text-sm text-red-500">
-        Failed to load incident data
+      <div className="flex h-60 w-full items-center justify-center rounded-md border border-red-200 bg-red-50 p-4 text-center text-sm text-red-700 animate-in fade-in">
+        {error}
       </div>
     );
   }
-
-  // 📭 EMPTY STATE
-  if (!chartData.length) {
+  
+  if (!data || data.length === 0) {
     return (
-      <div className="flex h-64 items-center justify-center text-sm text-gray-400">
-        No incidents for this severity
+      <div className="flex h-60 w-full items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50/50 p-4 text-center text-sm text-slate-400 animate-in fade-in">
+        No incident data available for this period.
       </div>
     );
   }
+  
+  const chartData = processDataForChart(data);
+  const severitiesToShow = severity === 'all' ? ['critical', 'high', 'medium', 'low'] : [severity];
+  const formatDate = (date: string) => new Date(date).toLocaleDateString("en-US", { month: 'short', day: 'numeric' });
 
   return (
-    <div className="h-64">
+    <div className="h-60 w-full animate-in fade-in">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" />
-
-          <XAxis
-            dataKey="date"
-            tick={{ fontSize: 12 }}
-            tickFormatter={(v) =>
-              new Date(v).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              })
-            }
+        <BarChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+          <XAxis 
+            dataKey="date" 
+            tickFormatter={formatDate} 
+            tick={{ fill: '#94a3b8', fontSize: 12 }}
+            tickLine={{ stroke: '#e2e8f0' }}
+            axisLine={{ stroke: '#e2e8f0' }}
           />
-
-          <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-
-          <Tooltip
-            formatter={(value) => [value, "Incidents"]}
-            labelFormatter={(v) =>
-              new Date(v).toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-              })
-            }
+          <YAxis 
+            tick={{ fill: '#94a3b8', fontSize: 12 }} 
+            tickLine={{ stroke: '#e2e8f0' }}
+            axisLine={{ stroke: '#e2e8f0' }}
           />
-
-          <Bar dataKey="value" fill={color} radius={[4, 4, 0, 0]} />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px', color: '#64748b' }} />
+          {severitiesToShow.map(sev => (
+            <Bar 
+              key={sev} 
+              dataKey={sev} 
+              stackId="a" 
+              name={SEVERITY_CONFIG[sev as 'critical' | 'high' | 'medium' | 'low'].label}
+              fill={SEVERITY_CONFIG[sev as 'critical' | 'high' | 'medium' | 'low'].color}
+            />
+          ))}
         </BarChart>
       </ResponsiveContainer>
     </div>

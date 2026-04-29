@@ -70,7 +70,7 @@ export default function RepositoryDetailPage() {
   ).length;
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 md:p-8 space-y-8 animate-in fade-in duration-500">
       {/* ─── HEADER ─── */}
       <header className="space-y-4">
         <Breadcrumb
@@ -82,11 +82,11 @@ export default function RepositoryDetailPage() {
         />
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight text-slate-900">
+          <div className="space-y-2">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">
               {repo.name}
             </h1>
-            <div className="flex items-center gap-3 mt-3">
+            <div className="flex items-center gap-3">
               <span className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-md text-xs font-bold border border-indigo-100">
                 <Database size={12} /> {repo.language || "Unknown"}
               </span>
@@ -96,9 +96,8 @@ export default function RepositoryDetailPage() {
             </div>
           </div>
 
-          {/* Simple Dynamic Status Badge based on real incident data */}
           <div
-            className={`px-4 py-2 rounded-xl border flex items-center gap-2 text-sm font-bold ${
+            className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl border flex items-center gap-2 text-sm font-bold self-start md:self-end ${
               activeIncidentsCount > 0
                 ? "bg-amber-50 text-amber-700 border-amber-200"
                 : "bg-emerald-50 text-emerald-700 border-emerald-200"
@@ -139,7 +138,7 @@ export default function RepositoryDetailPage() {
 
       {/* ─── TABBED CONTENT ─── */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="flex border-b border-slate-100 bg-slate-50/50 p-2">
+        <div className="flex border-b border-slate-100 bg-slate-50/50 p-1 sm:p-2 overflow-x-auto">
           {[
             { id: "velocity", label: "Velocity", icon: Activity },
             { id: "prs", label: "Pull Requests", icon: GitMerge },
@@ -148,14 +147,14 @@ export default function RepositoryDetailPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold transition-all ${
+              className={`flex items-center gap-2 px-3 py-2 sm:px-5 sm:py-2.5 rounded-2xl text-sm font-bold transition-all flex-shrink-0 ${
                 activeTab === tab.id
                   ? "bg-white text-indigo-600 shadow-sm border border-slate-200/50"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <tab.icon size={18} />
-              {tab.label}
+              <tab.icon size={16} />
+              <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
         </div>
@@ -163,68 +162,93 @@ export default function RepositoryDetailPage() {
         <div className="min-h-[400px]">
           {/* 1. DEPLOYMENT HISTORY */}
           {activeTab === "velocity" && (
-            <div className="p-8 animate-in slide-in-from-bottom-2">
-              <div className="flex items-center justify-between mb-8">
+            <div className="p-4 sm:p-6 md:p-8 animate-in slide-in-from-bottom-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
                 <div className="space-y-1">
-                  <h2 className="text-lg font-bold text-slate-800">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-800">
                     Individual Deployment History
                   </h2>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-xs sm:text-sm text-slate-500">
                     Track production frequency over the last 14 days.
                   </p>
                 </div>
               </div>
-              <DeploymentChart data={repo.deploymentHistory} title="" />
+              <DeploymentChart data={repo.deploymentHistory} />
             </div>
           )}
 
           {/* 2. MERGED PRs */}
           {activeTab === "prs" && (
             <div className="animate-in slide-in-from-bottom-2">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50/50 border-b border-slate-100">
-                  <tr>
-                    <th className="px-8 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                      Title
-                    </th>
-                    <th className="px-8 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider text-right">
-                      Merged Date
-                    </th>
-                    <th className="px-8 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-wider text-right">
-                      Lines
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {paginatedPrs.map((pr) => (
-                    <tr
-                      key={pr.id}
-                      className="hover:bg-slate-50/50 transition-colors"
-                    >
-                      <td className="px-8 py-5">
-                        <p className="text-sm font-semibold text-slate-700">
-                          {pr.title}
-                        </p>
-                      </td>
-                      <td className="px-8 py-5 text-right text-xs text-slate-500 font-medium">
-                        {new Date(pr.mergedAt).toLocaleDateString(undefined, {
-                          dateStyle: "medium",
-                        })}
-                      </td>
-                      <td className="px-8 py-5 text-right">
-                        <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-slate-50 rounded-md font-mono text-[10px] font-bold">
-                          <span className="text-emerald-600">
-                            +{pr.additions}
-                          </span>
-                          <span className="text-rose-500">-{pr.deletions}</span>
-                        </div>
-                      </td>
+              <div className="overflow-x-auto">
+                {/* 
+    Mobile  (< sm): 2 cols — Title + Lines
+    Desktop (≥ sm): 3 cols — Title + Merged Date + Lines
+  */}
+                <table className="w-full text-left table-fixed">
+                  <thead className="bg-slate-50/60 border-b border-slate-100">
+                    <tr>
+                      {/* Title — takes remaining space */}
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-left">
+                        Title
+                      </th>
+                      {/* Hidden on mobile — not enough horizontal room */}
+                      <th className="hidden sm:table-cell px-6 py-3 sm:py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right whitespace-nowrap w-[160px]">
+                        Merged Date
+                      </th>
+                      {/* Always visible but compact on mobile */}
+                      <th className="px-3 sm:px-6 py-3 sm:py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right w-[80px] sm:w-[120px]">
+                        Lines
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {paginatedPrs.map((pr) => (
+                      <tr
+                        key={pr.id}
+                        className="hover:bg-slate-50/50 transition-colors"
+                      >
+                        {/* Title cell — on mobile also shows date below the title */}
+                        <td className="px-4 sm:px-6 py-3 sm:py-4 min-w-0">
+                          <p className="text-xs sm:text-sm font-semibold text-slate-700 truncate">
+                            {pr.title}
+                          </p>
+                          {/* Date shown inline under title on mobile only */}
+                          <p className="mt-0.5 text-[11px] text-slate-400 sm:hidden">
+                            {new Date(pr.mergedAt).toLocaleDateString(
+                              undefined,
+                              {
+                                dateStyle: "medium",
+                              }
+                            )}
+                          </p>
+                        </td>
 
-              <div className="p-6 flex items-center justify-between bg-slate-50/30">
+                        {/* Date column — hidden on mobile (shown in title cell instead) */}
+                        <td className="hidden sm:table-cell px-6 py-3 sm:py-4 text-right text-xs text-slate-400 font-medium whitespace-nowrap">
+                          {new Date(pr.mergedAt).toLocaleDateString(undefined, {
+                            dateStyle: "medium",
+                          })}
+                        </td>
+
+                        {/* Lines badge */}
+                        <td className="px-3 sm:px-6 py-3 sm:py-4 text-right">
+                          <div className="inline-flex flex-col xs:flex-row items-end xs:items-center gap-0.5 xs:gap-1.5 font-mono text-[10px] font-bold">
+                            <span className="text-emerald-600">
+                              +{pr.additions}
+                            </span>
+                            <span className="text-rose-500">
+                              -{pr.deletions}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="p-4 flex items-center justify-between bg-slate-50/30 border-t border-slate-100">
                 <p className="text-xs text-slate-400">
                   Total: {repo.mergedPullRequests.length} PRs
                 </p>
@@ -252,20 +276,17 @@ export default function RepositoryDetailPage() {
 
           {/* 3. INCIDENT TIMELINE */}
           {activeTab === "incidents" && (
-            <div className="p-6 md:p-8 animate-in slide-in-from-bottom-2 duration-500">
+            <div className="p-4 sm:p-6 md:p-8 animate-in slide-in-from-bottom-2 duration-500">
               {repo.recentIncidents.length > 0 ? (
-                <div className="space-y-8 relative">
-                  {/* The Timeline Vertical Line */}
+                <div className="space-y-6 relative">
                   <div className="absolute left-[11px] top-2 bottom-2 w-0.5 bg-slate-100" />
-
-                  {repo.recentIncidents.map((inc, index) => {
+                  {repo.recentIncidents.map((inc) => {
                     const isResolved = inc.status === "resolved";
                     const startDate = new Date(inc.startedAt);
                     const endDate = inc.resolvedAt
                       ? new Date(inc.resolvedAt)
                       : null;
 
-                    // Calculate Duration if resolved
                     let durationText = "";
                     if (startDate && endDate) {
                       const diffInHours =
@@ -278,8 +299,7 @@ export default function RepositoryDetailPage() {
                     }
 
                     return (
-                      <div key={inc.id} className="relative pl-10 group">
-                        {/* Timeline Node */}
+                      <div key={inc.id} className="pl-8 relative">
                         <div
                           className={`absolute left-0 top-1.5 w-6 h-6 rounded-full border-4 border-white shadow-sm z-10 transition-transform group-hover:scale-110 ${
                             isResolved
@@ -289,15 +309,15 @@ export default function RepositoryDetailPage() {
                         />
 
                         <div
-                          className={`p-5 rounded-2xl border transition-all ${
+                          className={`p-4 sm:p-5 rounded-2xl border transition-all ${
                             isResolved
                               ? "bg-white border-slate-100 opacity-80"
                               : "bg-amber-50/30 border-amber-100 shadow-md ring-1 ring-amber-200/50"
                           }`}
                         >
-                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
+                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                            <div className="space-y-2">
+                              <div className="flex items-center flex-wrap gap-x-4 gap-y-1">
                                 <span
                                   className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
                                     inc.severity === "critical"
@@ -320,8 +340,8 @@ export default function RepositoryDetailPage() {
                                 </h3>
                               </div>
 
-                              <div className="flex items-center gap-3 text-[11px] font-medium text-slate-400">
-                                <span className="flex items-center gap-1">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-[11px] font-medium text-slate-400">
+                                <span className="flex items-center gap-1.5">
                                   <Clock size={12} />
                                   Started {startDate.toLocaleDateString()} at{" "}
                                   {startDate.toLocaleTimeString([], {
@@ -330,7 +350,7 @@ export default function RepositoryDetailPage() {
                                   })}
                                 </span>
                                 {isResolved && (
-                                  <span className="flex items-center gap-1 text-emerald-600">
+                                  <span className="flex items-center gap-1.5 text-emerald-600">
                                     <ShieldCheck size={12} />
                                     {durationText}
                                   </span>
@@ -338,7 +358,7 @@ export default function RepositoryDetailPage() {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2 self-start md:self-center">
+                            <div className="flex items-center gap-2 self-start">
                               <span
                                 className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border ${
                                   isResolved

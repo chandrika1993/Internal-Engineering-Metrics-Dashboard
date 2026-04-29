@@ -1,101 +1,101 @@
-"use client";
+'use client';
 
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-} from "recharts";
-import type { TrendPoint } from "@/types";
+} from 'recharts';
+import { formatNumber } from '@/lib/utils';
+import type { TrendPoint } from '@/types';
 
 interface DeploymentChartProps {
   data: TrendPoint[];
-  title: string;
-  subtitle?: string;
   loading?: boolean;
   error?: string | null;
 }
 
-function ChartTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-xl border border-gray-100 bg-white px-3 py-2 shadow-lg">
-      <p className="text-xs text-gray-400 mb-1">
-        {new Date(label).toLocaleDateString("en-GB", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        })}
-      </p>
-      <p className="text-sm font-semibold text-indigo-600">
-        {payload[0].value} deployments
-      </p>
-    </div>
-  );
-}
+// Helper to process data for the chart
+const processDataForChart = (data: TrendPoint[]) => {
+  return data.map(item => ({
+    date: new Date(item.date).toLocaleDateString("en-US", { month: 'short', day: 'numeric' }),
+    value: item.value
+  }));
+};
 
 export default function DeploymentChart({
   data,
-  title,
-  subtitle,
   loading,
   error,
 }: DeploymentChartProps) {
-  return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-        {subtitle && <p className="mt-0.5 text-sm text-gray-400">{subtitle}</p>}
-      </div>
+  if (loading) {
+    return <div className="h-60 w-full animate-pulse rounded-md bg-slate-100" />;
+  }
 
-      <div className="h-64">
-        {loading ? (
-          <div className="h-full animate-pulse rounded-xl bg-gray-100" />
-        ) : error ? (
-          <div className="flex h-full items-center justify-center rounded-xl bg-red-50 text-sm text-red-400">
-            {error}
-          </div>
-        ) : !data || data.length === 0 ? (
-          <div className="flex h-full items-center justify-center rounded-xl bg-gray-50 text-sm text-gray-400">
-            No deployment data available
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(v) =>
-                  new Date(v).toLocaleDateString("en-GB", {
-                    month: "short",
-                    day: "numeric",
-                  })
-                }
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: "#9ca3af" }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <Tooltip content={<ChartTooltip />} />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="#6366f1"
-                strokeWidth={2.5}
-                dot={false}
-                activeDot={{ r: 4, fill: "#6366f1", strokeWidth: 0 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
+  if (error) {
+    return (
+      <div className="flex h-60 w-full items-center justify-center rounded-md border border-red-200 bg-red-50 p-4 text-center text-sm text-red-700 animate-in fade-in">
+        {error}
       </div>
+    );
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex h-60 w-full items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50/50 p-4 text-center text-sm text-slate-400 animate-in fade-in">
+        No deployment data available for this period.
+      </div>
+    );
+  }
+  
+  const chartData = processDataForChart(data);
+
+  return (
+    <div className="h-60 w-full animate-in fade-in">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart
+          data={chartData}
+          margin={{
+            top: 5,
+            right: 20,
+            left: -10,
+            bottom: 5,
+          }}
+        >
+          <XAxis
+            dataKey="date"
+            tick={{ fill: '#94a3b8', fontSize: 12 }}
+            tickLine={{ stroke: '#e2e8f0' }}
+            axisLine={{ stroke: '#e2e8f0' }}
+          />
+          <YAxis
+            tick={{ fill: '#94a3b8', fontSize: 12 }}
+            tickLine={{ stroke: '#e2e8f0' }}
+            axisLine={{ stroke: '#e2e8f0' }}
+            tickFormatter={(val) => formatNumber(val as number)}
+          />
+          <Tooltip
+            contentStyle={{
+              background: '#ffffff',
+              borderColor: '#e2e8f0',
+              borderRadius: '0.5rem',
+              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+            }}
+            labelStyle={{ color: '#1e293b', fontWeight: 'bold' }}
+          />
+          <Area
+            type="monotone"
+            dataKey="value"
+            name="Deploys"
+            stroke="#4f46e5"
+            strokeWidth={2}
+            fill="#e0e7ff"
+            fillOpacity={0.5}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
     </div>
   );
 }

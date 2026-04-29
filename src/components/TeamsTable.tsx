@@ -110,14 +110,14 @@ export default function TeamsTable({
 
   if (error) {
     return (
-      <div className="flex justify-center items-center py-10 text-sm text-red-500">
+      <div role="status" aria-live="polite" className="flex justify-center items-center py-10 text-sm text-red-500 animate-in fade-in">
         {error}
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden animate-in fade-in">
       {/* ── Desktop ── */}
       <div className="hidden sm:block overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
@@ -126,9 +126,12 @@ export default function TeamsTable({
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   const sortEntry = sorting.find((s) => s.id === header.column.id);
+                  const sortDirection = sortEntry ? (sortEntry.desc ? 'descending' : 'ascending') : 'none';
                   return (
                     <th
                       key={header.id}
+                      scope="col"
+                      aria-sort={sortDirection}
                       className={`px-4 py-3 text-left text-xs font-medium uppercase cursor-pointer select-none transition-colors group
                       ${
                         sortEntry
@@ -167,7 +170,7 @@ export default function TeamsTable({
             ))}
           </thead>
 
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-gray-200" role="status" aria-live="polite">
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
             ) : rows.length === 0 ? (
@@ -203,12 +206,14 @@ export default function TeamsTable({
       {/* ── Mobile ── */}
       <ul className="sm:hidden divide-y divide-gray-200">
         {loading ? (
-          Array.from({ length: 5 }).map((_, i) => (
-            <li key={i} className="px-3 py-4">
-              <div className="h-3 w-1/2 bg-gray-200 animate-pulse mb-2 rounded" />
-              <div className="h-3 w-1/3 bg-gray-200 animate-pulse rounded" />
-            </li>
-          ))
+          <div role="status" aria-live="polite">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <li key={i} className="px-3 py-4">
+                <div className="h-3 w-1/2 bg-gray-200 animate-pulse mb-2 rounded" />
+                <div className="h-3 w-1/3 bg-gray-200 animate-pulse rounded" />
+              </li>
+            ))}
+          </div>
         ) : rows.length === 0 ? (
           <li className="px-3 py-6 text-center text-sm text-gray-400">
             No teams found.
@@ -239,24 +244,24 @@ export default function TeamsTable({
                     )}
                   </div>
                 )}
-                <div className="grid grid-cols-2 gap-2">
+                <dl className="grid grid-cols-2 gap-2">
                   {statCells.map((cell) => (
                     <div
                       key={cell.id}
                       className="bg-gray-50 rounded px-2 py-1.5"
                     >
-                      <div className="text-[10px] text-gray-400 uppercase">
+                      <dt className="text-[10px] text-gray-400 uppercase">
                         {mobileLabels[cell.column.id] ?? cell.column.id}
-                      </div>
-                      <div className="text-sm font-medium">
+                      </dt>
+                      <dd className="text-sm font-medium">
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()
                         )}
-                      </div>
+                      </dd>
                     </div>
                   ))}
-                </div>
+                </dl>
               </li>
             );
           })
@@ -264,7 +269,7 @@ export default function TeamsTable({
       </ul>
 
       {/* ── Pagination ── */}
-      <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50 text-sm text-gray-600">
+      <nav aria-label="Pagination" className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50 text-sm text-gray-600">
         <span>
           Page <strong>{page}</strong> of <strong>{totalPages}</strong>
         </span>
@@ -272,6 +277,8 @@ export default function TeamsTable({
           <button
             onClick={() => onPageChange(page - 1)}
             disabled={page <= 1 || loading}
+            aria-label="Go to previous page"
+            aria-disabled={page <= 1 || loading}
             className="px-3 py-1 rounded border border-gray-200 disabled:opacity-40 hover:bg-white transition-colors"
           >
             ←
@@ -279,12 +286,14 @@ export default function TeamsTable({
           <button
             onClick={() => onPageChange(page + 1)}
             disabled={page >= totalPages || loading}
+            aria-label="Go to next page"
+            aria-disabled={page >= totalPages || loading}
             className="px-3 py-1 rounded border border-gray-200 disabled:opacity-40 hover:bg-white transition-colors"
           >
             →
           </button>
         </div>
-      </div>
+      </nav>
     </div>
   );
 }
