@@ -20,7 +20,7 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [department, setDepartment] = useState('all');
   const [severity, setSeverity] = useState<SeverityFilter>('all');
-  const [debouncedValue] = useDebounce(searchQuery, 150);
+  const [debouncedValue] = useDebounce(searchQuery, 300);
 
   const { from, to, setRange } = useDateRange();
 

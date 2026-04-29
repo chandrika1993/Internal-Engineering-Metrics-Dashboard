@@ -1,9 +1,16 @@
-import { useState, useEffect } from 'react';
+// src/hooks/useTeams.ts
+
+import { useState, useEffect, useCallback } from 'react';
 import { SortingState } from '@tanstack/react-table';
 import type { TeamWithStats } from '@/types';
 import { PAGE_SIZE } from '@/lib/utils';
 
-export function useTeams(debouncedValue: string, department: string, from: string, to: string) {
+export function useTeams(
+  debouncedValue: string,
+  department: string,
+  from: string,
+  to: string
+) {
   const [teams, setTeams] = useState<TeamWithStats[]>([]);
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [teamsError, setTeamsError] = useState<string | null>(null);
@@ -11,17 +18,25 @@ export function useTeams(debouncedValue: string, department: string, from: strin
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
-  async function loadTeams(
+  /**
+   * Departments are fetched from the server and should not be derived
+   * from the current page's data — that gives an incomplete list when
+   * only 5 teams are visible. Store them separately.
+   */
+  const [departments, setDepartments] = useState<string[]>([]);
+
+  const loadTeams = useCallback(async (
     currentPage: number,
     currentSorting: SortingState,
     search: string,
     dept: string,
     from: string,
     to: string
-  ) {
+  ) => {
     try {
       setTeamsLoading(true);
       setTeamsError(null);
+
       const params = new URLSearchParams({
         page: String(currentPage),
         pageSize: String(PAGE_SIZE),
@@ -34,34 +49,38 @@ export function useTeams(debouncedValue: string, department: string, from: strin
           sortDir: currentSorting[0].desc ? 'desc' : 'asc',
         }),
       });
+
       const res = await fetch(`/api/teams?${params}`);
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
       const data = await res.json();
       setTeams(data.data ?? []);
       setTotalCount(data.totalCount ?? 0);
+
+      /**
+       * Only populate departments on the first unfiltered load so the
+       * dropdown always shows all possible values, not just the current page.
+       */
+      if (!search && dept === 'all' && currentPage === 1 && data.departments) {
+        setDepartments(data.departments);
+      }
     } catch (err) {
       setTeamsError('Failed to load teams data');
+      console.error('[useTeams]', err);
     } finally {
       setTeamsLoading(false);
     }
-  }
+  }, []);
 
+  // Reset to page 1 when any filter changes to avoid showing an empty page
   useEffect(() => {
     setPage(1);
   }, [debouncedValue, sorting, from, to, department]);
 
+  // Re-fetch whenever page, sort, search, or date range changes
   useEffect(() => {
     loadTeams(page, sorting, debouncedValue, department, from, to);
-  }, [page, sorting, debouncedValue, from, to, department]);
-
-  // 1. Extract department values, which may include nulls
-  const allDepartmentsWithNulls = teams.map(t => t.department);
-  
-  // 2. Filter out null or undefined values using a type guard
-  const nonNullDepartments = allDepartmentsWithNulls.filter((d): d is string => !!d);
-  
-  // 3. Get a unique set of departments and sort them
-  const departments = Array.from(new Set(nonNullDepartments)).sort();
+  }, [page, sorting, debouncedValue, from, to, department, loadTeams]);
 
   return {
     teams,

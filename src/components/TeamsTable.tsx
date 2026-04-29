@@ -132,6 +132,9 @@ export default function TeamsTable({
                       key={header.id}
                       scope="col"
                       aria-sort={sortDirection}
+                      aria-label={`Sort by ${flexRender(header.column.columnDef.header, header.getContext())} ${
+                        sortEntry ? (sortEntry.desc ? "descending" : "ascending") : ""
+                      }`}
                       className={`px-4 py-3 text-left text-xs font-medium uppercase cursor-pointer select-none transition-colors group
                       ${
                         sortEntry
