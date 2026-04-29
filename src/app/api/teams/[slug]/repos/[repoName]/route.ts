@@ -51,7 +51,7 @@ export async function GET(
     value,
   }));
 
-  const mergedPullRequests = rawPRs.map(pr => ({
+  const mergedPullRequests = rawPRs.map((pr) => ({
     ...pr,
     mergedAt: pr.mergedAt ? new Date(pr.mergedAt).toISOString() : null,
   }));

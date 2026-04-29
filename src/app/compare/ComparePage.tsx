@@ -128,7 +128,12 @@ export default function ComparePage() {
         <TeamSelector
           allTeams={allTeams}
           selected={selectedSlugs}
-          onChange={setSelectedSlugs}
+          onChange={(slugs) => {
+            // Guard against exceeding the 2–3 team limit defined in CANDIDATE.md.
+            // TeamSelector already disables the button, but this adds a defensive
+            // server-side-style check in case the component is reused elsewhere.
+            if (slugs.length <= 3) setSelectedSlugs(slugs);
+          }}
           loading={allTeams.length === 0}
         />
 
