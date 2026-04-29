@@ -2,9 +2,9 @@
 
 import { CheckCircle2 } from 'lucide-react';
 
-const TEAM_COLORS = ["#6366F1", "#0EA5E9", "#14B8A6"];
-const TEAM_COLORS_LIGHT = ["#EEF2FF", "#F0F9FF", "#F0FDFA"];
-const TEAM_COLORS_BORDER = ["#C7D2FE", "#BAE6FD", "#A7F3D0"];
+const TEAM_COLORS = ["#6366F1", "#760455d4", "#14B8A6"];
+const TEAM_COLORS_LIGHT = ["#EEF2FF", "#f8eef5", "#F0FDFA"];
+const TEAM_COLORS_BORDER = ["#C7D2FE", "#e0a8df", "#A7F3D0"];
 
 export { TEAM_COLORS, TEAM_COLORS_LIGHT, TEAM_COLORS_BORDER };
 
