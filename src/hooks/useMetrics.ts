@@ -9,6 +9,7 @@ export function useMetrics(from: string, to: string, severity: string) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
     async function loadMetrics() {
       try {
         setLoading(true);
@@ -17,10 +18,13 @@ export function useMetrics(from: string, to: string, severity: string) {
         if (severity !== "all") {
           params.append("severity", severity);
         }
-        const res = await fetch(`/api/metrics/overview?${params.toString()}`);
+        const res = await fetch(`/api/metrics/overview?${params.toString()}`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error("Failed to fetch metrics");
         setMetrics(await res.json());
       } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
         setError(
           err instanceof Error ? err.message : "An unknown error occurred"
         );
@@ -30,6 +34,7 @@ export function useMetrics(from: string, to: string, severity: string) {
     }
 
     loadMetrics();
+    return () => controller.abort();  // Cleanup: abort any in-flight request when deps change or component unmounts
   }, [from, to, severity]);
 
   return { metrics, loading, error };

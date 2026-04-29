@@ -6,18 +6,17 @@ import {
 
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
+
   return (
     <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-lg text-sm">
       <p className="text-xs text-gray-400 mb-2">
-        {new Date(label).toLocaleDateString("en-GB", {
-          day: "numeric", month: "short", year: "numeric",
-        })}
+        {new Date(label).toLocaleDateString("en-GB")}
       </p>
       {payload.map((p: any) => (
-        <div key={p.name} className="flex items-center gap-2">
+        <div key={p.dataKey} className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-          <span className="text-gray-600">{p.name}</span>
-          <span className="font-semibold ml-auto pl-4" style={{ color: p.color }}>
+          <span>{p.name}</span>
+          <span className="ml-auto font-semibold" style={{ color: p.color }}>
             {p.value}
           </span>
         </div>
@@ -81,7 +80,7 @@ function CompareChart({
                 <Line key={name} type="monotone" dataKey={name} stroke={color}
                 strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
             ))}
-            </LineChart>
+          </LineChart>
         </ResponsiveContainer>
       </div>
     </div>
