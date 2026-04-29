@@ -8,6 +8,5 @@ export async function GET(request: NextRequest) {
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
   const metrics = await getOverviewMetrics(severity, from, to);
-  console.log('.. metrics :: ', metrics);
   return NextResponse.json(metrics);
 }

@@ -319,15 +319,9 @@ export async function getTrends(
       if (repoIds.length === 0) return [];
       const ids = repoIds.map((r) => r.id);
       if (metric === "deployments") {
-        teamFilter = sql`${deployments.repositoryId} IN (${sql.join(
-          ids.map((id) => sql`${id}`),
-          sql`, `
-        )})`;
+        teamFilter = inArray(deployments.repositoryId, ids);
       } else {
-        teamFilter = sql`${pullRequests.repositoryId} IN (${sql.join(
-          ids.map((id) => sql`${id}`),
-          sql`, `
-        )})`;
+        teamFilter = inArray(pullRequests.repositoryId, ids);
       }
     }
   }

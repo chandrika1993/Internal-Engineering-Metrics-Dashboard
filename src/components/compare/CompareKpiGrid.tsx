@@ -30,21 +30,25 @@ function KpiCard({
       <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">
         {label}
       </p>
+
       <div className="flex flex-col gap-3">
         {teams.map(({ detail, color, lightColor }) => {
           const val = getValue(detail);
           const isBest = val === best && teams.length > 1;
+
           return (
             <div key={detail.slug} className="flex items-center gap-3">
               <span
                 className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: color }}
               />
+
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs text-gray-500 truncate">
                     {detail.name}
                   </span>
+
                   <div className="flex items-center gap-1.5">
                     {isBest && (
                       <span
@@ -54,6 +58,7 @@ function KpiCard({
                         BEST
                       </span>
                     )}
+
                     <span
                       className="text-sm sm:text-base font-bold tabular-nums"
                       style={{ color }}
@@ -62,6 +67,7 @@ function KpiCard({
                     </span>
                   </div>
                 </div>
+
                 <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-700"
@@ -84,14 +90,34 @@ function KpiCard({
 export default function CompareKpiGrid({ teams }: { teams: TeamWithColor[] }) {
   return (
     <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <KpiCard label="Deployments" teams={teams}
-        getValue={(d) => d.metrics.deploymentsPerWeek} higherIsBetter />
-      <KpiCard label="Lead Time" teams={teams}
-        getValue={(d) => d.metrics.leadTimeHours} format="hours" higherIsBetter={false} />
-      <KpiCard label="PRs Merged" teams={teams}
-        getValue={(d) => d.metrics.prThroughput} higherIsBetter />
-      <KpiCard label="Incidents" teams={teams}
-        getValue={(d) => d.metrics.incidentCount} higherIsBetter={false} />
+      <KpiCard
+        label="Deployments"
+        teams={teams}
+        getValue={(d) => d.metrics?.deploymentsPerWeek ?? 0}
+        higherIsBetter
+      />
+
+      <KpiCard
+        label="Lead Time"
+        teams={teams}
+        getValue={(d) => d.metrics?.leadTimeHours ?? 0}
+        format="hours"
+        higherIsBetter={false}
+      />
+
+      <KpiCard
+        label="PRs Merged"
+        teams={teams}
+        getValue={(d) => d.metrics?.prThroughput ?? 0}
+        higherIsBetter
+      />
+
+      <KpiCard
+        label="Incidents"
+        teams={teams}
+        getValue={(d) => d.metrics?.incidentCount ?? 0}
+        higherIsBetter={false}
+      />
     </section>
   );
 }

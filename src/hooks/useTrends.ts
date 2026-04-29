@@ -14,6 +14,7 @@ export function useTrends(
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
     async function loadTrends() {
       try {
         setLoading(true);
@@ -22,10 +23,13 @@ export function useTrends(
         if (severity && severity !== "all") {
           params.append("severity", severity);
         }
-        const res = await fetch(`/api/metrics/trends?${params.toString()}`);
+        const res = await fetch(`/api/metrics/trends?${params.toString()}`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error("Failed to fetch trends");
         setTrends(await res.json());
       } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
         setError(
           err instanceof Error ? err.message : "An unknown error occurred"
         );
@@ -35,6 +39,7 @@ export function useTrends(
     }
 
     loadTrends();
+    return () => controller.abort(); // Cleanup: abort any in-flight request when deps change or component unmounts
   }, [metric, from, to, severity]);
 
   return { trends, loading, error };

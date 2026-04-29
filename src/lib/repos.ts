@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { deployments, incidents, pullRequests, repositories, teams } from "@/db/schema";
-import { eq, and, desc, isNotNull } from "drizzle-orm";
+import { eq, and, desc, isNotNull, gte } from "drizzle-orm";
 
 export async function getRepoBySlugAndName(
   teamSlug: string,
@@ -32,6 +32,7 @@ export async function getRepoBySlugAndName(
  * Deployment history for a repository
  */
 export async function getRepoDeploymentHistory(repoId: number) {
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 86400000);
   return await db
     .select({
       id: deployments.id,
@@ -42,7 +43,10 @@ export async function getRepoDeploymentHistory(repoId: number) {
       status: deployments.status,
     })
     .from(deployments)
-    .where(eq(deployments.repositoryId, repoId))
+    .where(and(
+      eq(deployments.repositoryId, repoId),
+      gte(deployments.deployedAt, fourteenDaysAgo)
+    ))
     .orderBy(desc(deployments.deployedAt));
 }
 

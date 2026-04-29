@@ -65,8 +65,8 @@ export interface SortParam {
 }
 
 export interface RepoPullRequest {
-  id: string;
-  title: string;
+  id: number;
+  title: string | null;
   mergedAt: string;
   additions: number;
   deletions: number;
