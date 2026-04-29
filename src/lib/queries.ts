@@ -33,9 +33,7 @@ function parseDateRange(from?: string, to?: string) {
     fromDate: from
       ? new Date(`${from}T00:00:00.000Z`)
       : new Date(Date.now() - 30 * 86400000),
-    toDate: to
-      ? new Date(`${to}T23:59:59.999Z`)
-      : new Date(),
+    toDate: to ? new Date(`${to}T23:59:59.999Z`) : new Date(),
   };
 }
 
@@ -76,7 +74,15 @@ export async function getTeamsWithStatsPaginated({
   department?: string;
 }): Promise<{ data: TeamWithStats[]; totalCount: number }> {
   const { fromDate, toDate } = parseDateRange(from, to);
-  
+
+  /**
+   * Metric semantics:
+   * - repoCount: current snapshot (not date filtered)
+   * - deploys7d: date-filtered deployments for selected range
+   * - prsMerged7d: date-filtered merged PRs for selected range
+   * - openIncidents: current unresolved incidents snapshot
+   */
+
   const repoCountSq = db
     .select({
       teamId: repositories.teamId,
@@ -111,10 +117,10 @@ export async function getTeamsWithStatsPaginated({
     .innerJoin(repositories, eq(pullRequests.repositoryId, repositories.id))
     .where(
       and(
+        eq(pullRequests.status, "merged"),
         isNotNull(pullRequests.mergedAt),
         gte(pullRequests.mergedAt, fromDate),
-        lte(pullRequests.mergedAt, toDate),
-        eq(pullRequests.status, "merged")
+        lte(pullRequests.mergedAt, toDate)
       )
     )
     .groupBy(repositories.teamId)
@@ -130,19 +136,6 @@ export async function getTeamsWithStatsPaginated({
     .groupBy(incidents.teamId)
     .as("incident_counts");
 
-  const ALLOWED_SORT_COLUMNS: Record<string, SQL> = {
-    name: sql`${teams.name}`,
-    department: sql`${teams.department}`,
-    repoCount: sql`coalesce(${repoCountSq.repoCount}, 0)`,
-    deploys7d: sql`coalesce(${deployCountSq.deploys7d}, 0)`,
-    prsMerged7d: sql`coalesce(${prCountSq.prsMerged7d}, 0)`,
-    openIncidents: sql`coalesce(${incidentCountSq.openIncidents}, 0)`,
-  };
-
-  const sortColumn =
-    ALLOWED_SORT_COLUMNS[sortBy ?? "name"] ?? sql`${teams.name}`;
-  const orderExpr = sortDir === "desc" ? desc(sortColumn) : asc(sortColumn);
-
   const searchFilter = search
     ? or(
         ilike(teams.name, `%${search}%`),
@@ -155,6 +148,19 @@ export async function getTeamsWithStatsPaginated({
     : undefined;
 
   const whereClause = and(searchFilter, departmentFilter);
+
+  const sortableColumns: Record<string, SQL> = {
+    name: sql`${teams.name}`,
+    department: sql`${teams.department}`,
+    repoCount: sql`coalesce(${repoCountSq.repoCount}, 0)`,
+    deploys7d: sql`coalesce(${deployCountSq.deploys7d}, 0)`,
+    prsMerged7d: sql`coalesce(${prCountSq.prsMerged7d}, 0)`,
+    openIncidents: sql`coalesce(${incidentCountSq.openIncidents}, 0)`,
+  };
+
+  const sortColumn = sortableColumns[sortBy ?? "name"] ?? sql`${teams.name}`;
+
+  const orderExpr = sortDir === "desc" ? desc(sortColumn) : asc(sortColumn);
 
   const [rows, [{ count }]] = await Promise.all([
     db
@@ -489,7 +495,7 @@ export async function getTeamDetail(
       )
     );
 
-    const leadTimeResult = repoIds.length
+  const leadTimeResult = repoIds.length
     ? await db
         .select({
           medianHours: sql<number>`COALESCE(

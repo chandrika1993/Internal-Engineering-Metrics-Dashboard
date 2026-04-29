@@ -31,10 +31,10 @@ const columns = [
     header: "Repos",
   }),
   columnHelper.accessor("deploys7d", {
-    header: "Deploys (7d)",
+    header: "Deploys",
   }),
   columnHelper.accessor("prsMerged7d", {
-    header: "PRs Merged (7d)",
+    header: "PRs Merged",
   }),
   columnHelper.accessor("openIncidents", {
     header: "Open Incidents",
@@ -53,8 +53,8 @@ const mobileLabels: Record<string, string> = {
   name: "Team",
   department: "Department",
   repoCount: "Repos",
-  deploys7d: "Deploys (7d)",
-  prsMerged7d: "PRs Merged (7d)",
+  deploys7d: "Deploys",
+  prsMerged7d: "PRs Merged",
   openIncidents: "Open Incidents",
 };
 
