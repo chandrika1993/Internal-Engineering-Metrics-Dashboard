@@ -109,6 +109,7 @@ export async function getTeamsWithStatsPaginated({
   sortDir,
   from,
   to,
+  department,
 }: {
   page: number;
   pageSize: number;
@@ -117,6 +118,7 @@ export async function getTeamsWithStatsPaginated({
   sortDir?: "asc" | "desc";
   from?: string;
   to?: string;
+  department?: string;
 }): Promise<{ data: TeamWithStats[]; totalCount: number }> {
   const fromDate = from ? new Date(from) : new Date(Date.now() - 30 * 86400000);
   const toDate = to ? new Date(`${to}T23:59:59.999Z`) : new Date();
@@ -193,6 +195,12 @@ export async function getTeamsWithStatsPaginated({
       )
     : undefined;
 
+  const departmentFilter = department
+    ? eq(teams.department, department)
+    : undefined;
+
+  const whereClause = and(searchFilter, departmentFilter);
+
   const [rows, [{ count }]] = await Promise.all([
     db
       .select({
@@ -210,7 +218,7 @@ export async function getTeamsWithStatsPaginated({
       .leftJoin(deployCountSq, eq(deployCountSq.teamId, teams.id))
       .leftJoin(prCountSq, eq(prCountSq.teamId, teams.id))
       .leftJoin(incidentCountSq, eq(incidentCountSq.teamId, teams.id))
-      .where(searchFilter)
+      .where(whereClause)
       .orderBy(orderExpr)
       .limit(pageSize)
       .offset((page - 1) * pageSize),
@@ -218,7 +226,7 @@ export async function getTeamsWithStatsPaginated({
     db
       .select({ count: sql<number>`count(*)` })
       .from(teams)
-      .where(searchFilter),
+      .where(whereClause),
   ]);
 
   return {
@@ -325,7 +333,8 @@ export async function getTrends(
   metric: string = "deployments",
   from?: string,
   to?: string,
-  teamSlug?: string
+  teamSlug?: string,
+  severity?: string
 ): Promise<TrendPoint[]> {
   const fromDate = from ? new Date(from) : new Date(Date.now() - 30 * 86400000);
   const toDate = to ? new Date(`${to}T23:59:59.999Z`) : new Date();
@@ -394,11 +403,16 @@ export async function getTrends(
   }
 
   if (metric === "incidents") {
+    const severityFilter =
+      severity && severity !== "all"
+        ? sql`AND severity = ${severity}`
+        : sql``;
     const rows = await db.execute(sql`
       SELECT date_trunc('week', started_at)::date AS date, severity, count(*) AS value
       FROM incidents
       WHERE started_at >= ${fromStr} AND started_at <= ${toStr}
         AND ${teamFilter}
+        ${severityFilter}
       GROUP BY 1, 2 ORDER BY 1
     `);
     return (

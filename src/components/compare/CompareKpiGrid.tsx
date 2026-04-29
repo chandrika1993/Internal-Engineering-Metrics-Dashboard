@@ -26,7 +26,7 @@ function KpiCard({
   const best = higherIsBetter ? Math.max(...values) : Math.min(...values);
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm flex flex-col gap-4">
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 shadow-sm flex flex-col gap-3 sm:gap-4">
       <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">
         {label}
       </p>
@@ -48,14 +48,14 @@ function KpiCard({
                   <div className="flex items-center gap-1.5">
                     {isBest && (
                       <span
-                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                        className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full"
                         style={{ backgroundColor: lightColor, color }}
                       >
                         BEST
                       </span>
                     )}
                     <span
-                      className="text-base font-bold tabular-nums"
+                      className="text-sm sm:text-base font-bold tabular-nums"
                       style={{ color }}
                     >
                       {fmt(val)}
@@ -83,7 +83,7 @@ function KpiCard({
 
 export default function CompareKpiGrid({ teams }: { teams: TeamWithColor[] }) {
   return (
-    <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <KpiCard label="Deployments" teams={teams}
         getValue={(d) => d.metrics.deploymentsPerWeek} higherIsBetter />
       <KpiCard label="Lead Time" teams={teams}

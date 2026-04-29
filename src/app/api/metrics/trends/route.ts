@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
   const teamSlug = searchParams.get("team") ?? undefined;
-  const trends = await getTrends(metric, from, to, teamSlug);
-  console.log('....getTrends trends :: ', trends);
+  const severity = searchParams.get("severity") ?? undefined;
+  const trends = await getTrends(metric, from, to, teamSlug, severity);
   return NextResponse.json(trends);
 }
