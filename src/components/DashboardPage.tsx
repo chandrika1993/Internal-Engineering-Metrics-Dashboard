@@ -60,11 +60,7 @@ export default function DashboardPage() {
             Overview
           </h1>
           <div className="flex items-center gap-2 flex-wrap">
-            {[
-              'Delivery',
-              'Incidents',
-              'Velocity',
-            ].map((label) => (
+            {['Delivery', 'Incidents', 'Velocity'].map((label) => (
               <Fragment key={label}>
                 <span className="text-[11px] font-bold text-slate-500 bg-white border border-slate-200 shadow-sm rounded-full px-2.5 py-0.5">
                   {label}
@@ -162,8 +158,8 @@ export default function DashboardPage() {
                     onClick={() => setSeverity(level)}
                     className={`rounded-lg px-3 py-1.5 text-[11px] font-bold transition-all ${
                       severity === level
-                        ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
-                        : 'text-slate-400 hover:text-slate-600'
+                        ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
+                        : "text-slate-400 hover:text-slate-600"
                     }`}
                   >
                     {SEVERITY_CONFIG[level].label}
@@ -192,7 +188,7 @@ export default function DashboardPage() {
               Team Performance
             </h2>
             <p className="text-sm font-medium text-slate-400">
-              Detailed breakdown of engineering metrics by team
+              Detailed breakdown of team metrics for {rangeLabel}
             </p>
           </div>
 
