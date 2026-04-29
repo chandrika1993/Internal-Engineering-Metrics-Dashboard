@@ -23,7 +23,7 @@ export interface OverviewMetrics {
 export interface TrendPoint {
   date: string;
   value: number;
-  severity?: "critical" | "high" | "medium";
+  severity?: "critical" | "high" | "medium" | "low";
 }
 
 export interface TrendSeries {

@@ -25,83 +25,37 @@ import {
   SQL,
   lte,
   isNotNull,
+  inArray,
 } from "drizzle-orm";
 
-export async function getTeamsWithStats(): Promise<TeamWithStats[]> {
-  const sevenDaysAgo = sql`now() - interval '7 days'`;
-
-  const repoCountSq = db
-    .select({
-      teamId: repositories.teamId,
-      repoCount: sql<number>`count(*)`.as("repo_count"),
-    })
-    .from(repositories)
-    .groupBy(repositories.teamId)
-    .as("repo_counts");
-
-  const deployCountSq = db
-    .select({
-      teamId: repositories.teamId,
-      deploys7d: sql<number>`count(*)`.as("deploy_count"),
-    })
-    .from(deployments)
-    .innerJoin(repositories, eq(deployments.repositoryId, repositories.id))
-    .where(gte(deployments.deployedAt, sevenDaysAgo))
-    .groupBy(repositories.teamId)
-    .as("deploy_counts");
-
-  const prCountSq = db
-    .select({
-      teamId: repositories.teamId,
-      prsMerged7d: sql<number>`count(*)`.as("pr_count"),
-    })
-    .from(pullRequests)
-    .innerJoin(repositories, eq(pullRequests.repositoryId, repositories.id))
-    .where(
-      and(
-        gte(pullRequests.mergedAt, sevenDaysAgo),
-        eq(pullRequests.status, "merged")
-      )
-    )
-    .groupBy(repositories.teamId)
-    .as("pr_counts");
-
-  const incidentCountSq = db
-    .select({
-      teamId: incidents.teamId,
-      openIncidents: sql<number>`count(*)`.as("incident_count"),
-    })
-    .from(incidents)
-    .where(ne(incidents.status, "resolved"))
-    .groupBy(incidents.teamId)
-    .as("incident_counts");
-
-  const rows = await db
-    .select({
-      id: teams.id,
-      name: teams.name,
-      slug: teams.slug,
-      department: teams.department,
-      repoCount: sql<number>`coalesce(${repoCountSq.repoCount}, 0)`,
-      deploys7d: sql<number>`coalesce(${deployCountSq.deploys7d}, 0)`,
-      prsMerged7d: sql<number>`coalesce(${prCountSq.prsMerged7d}, 0)`,
-      openIncidents: sql<number>`coalesce(${incidentCountSq.openIncidents}, 0)`,
-    })
-    .from(teams)
-    .leftJoin(repoCountSq, eq(repoCountSq.teamId, teams.id))
-    .leftJoin(deployCountSq, eq(deployCountSq.teamId, teams.id))
-    .leftJoin(prCountSq, eq(prCountSq.teamId, teams.id))
-    .leftJoin(incidentCountSq, eq(incidentCountSq.teamId, teams.id));
-
-  return rows.map((row) => ({
-    ...row,
-    repoCount: Number(row.repoCount),
-    deploys7d: Number(row.deploys7d),
-    prsMerged7d: Number(row.prsMerged7d),
-    openIncidents: Number(row.openIncidents),
-  }));
+function parseDateRange(from?: string, to?: string) {
+  return {
+    fromDate: from
+      ? new Date(`${from}T00:00:00.000Z`)
+      : new Date(Date.now() - 30 * 86400000),
+    toDate: to
+      ? new Date(`${to}T23:59:59.999Z`)
+      : new Date(),
+  };
 }
 
+/**
+ * Fetches a paginated, sorted, filtered page of teams with aggregated stats.
+ *
+ * Performance notes:
+ * - All aggregation subqueries run as CTEs in a single round-trip.
+ * - sortBy is validated against an allowlist to prevent SQL injection.
+ * - fromDate/toDate default to last 30 days if not provided by the caller.
+ *
+ * @param page       1-indexed page number
+ * @param pageSize   Number of rows per page (typically PAGE_SIZE = 5)
+ * @param search     Partial match against team name or department
+ * @param sortBy     Column accessor key — must be in ALLOWED_SORT_COLUMNS
+ * @param sortDir    "asc" | "desc"
+ * @param from       ISO date string (YYYY-MM-DD) - defaults to 30 days ago if not provided
+ * @param to         ISO date string (YYYY-MM-DD) - defaults to today if not provided
+ * @param department Exact match on department name
+ */
 export async function getTeamsWithStatsPaginated({
   page,
   pageSize,
@@ -121,9 +75,8 @@ export async function getTeamsWithStatsPaginated({
   to?: string;
   department?: string;
 }): Promise<{ data: TeamWithStats[]; totalCount: number }> {
-  const fromDate = from ? new Date(from) : new Date(Date.now() - 30 * 86400000);
-  const toDate = to ? new Date(`${to}T23:59:59.999Z`) : new Date();
-
+  const { fromDate, toDate } = parseDateRange(from, to);
+  
   const repoCountSq = db
     .select({
       teamId: repositories.teamId,
@@ -158,6 +111,7 @@ export async function getTeamsWithStatsPaginated({
     .innerJoin(repositories, eq(pullRequests.repositoryId, repositories.id))
     .where(
       and(
+        isNotNull(pullRequests.mergedAt),
         gte(pullRequests.mergedAt, fromDate),
         lte(pullRequests.mergedAt, toDate),
         eq(pullRequests.status, "merged")
@@ -247,10 +201,7 @@ export async function getOverviewMetrics(
   from?: string,
   to?: string
 ): Promise<OverviewMetrics> {
-  const fromDate = from
-    ? new Date(`${from}T00:00:00.000Z`)
-    : new Date(Date.now() - 30 * 86400000);
-  const toDate = to ? new Date(`${to}T23:59:59.999Z`) : new Date();
+  const { fromDate, toDate } = parseDateRange(from, to);
 
   const deployResult = await db
     .select({ count: sql<number>`count(*)` })
@@ -281,15 +232,16 @@ export async function getOverviewMetrics(
     .select({
       medianHours: sql<number>`COALESCE(
         percentile_cont(0.5) WITHIN GROUP (
-          ORDER BY EXTRACT(EPOCH FROM (merged_at - first_commit_at)) / 3600
+          ORDER BY EXTRACT(EPOCH FROM (${pullRequests.mergedAt} - ${pullRequests.firstCommitAt})) / 3600
         ), 0
       )`,
     })
     .from(pullRequests)
     .where(
       and(
-        sql`${pullRequests.mergedAt} IS NOT NULL`,
-        sql`${pullRequests.firstCommitAt} IS NOT NULL`, // ← add this
+        isNotNull(pullRequests.mergedAt),
+        isNotNull(pullRequests.firstCommitAt),
+        eq(pullRequests.status, "merged"),
         gte(pullRequests.mergedAt, fromDate),
         lte(pullRequests.mergedAt, toDate)
       )
@@ -300,6 +252,7 @@ export async function getOverviewMetrics(
     .from(pullRequests)
     .where(
       and(
+        isNotNull(pullRequests.mergedAt),
         gte(pullRequests.mergedAt, fromDate),
         lte(pullRequests.mergedAt, toDate),
         eq(pullRequests.status, "merged")
@@ -337,8 +290,7 @@ export async function getTrends(
   teamSlug?: string,
   severity?: string
 ): Promise<TrendPoint[]> {
-  const fromDate = from ? new Date(from) : new Date(Date.now() - 30 * 86400000);
-  const toDate = to ? new Date(`${to}T23:59:59.999Z`) : new Date();
+  const { fromDate, toDate } = parseDateRange(from, to);
   const fromStr = fromDate.toISOString();
   const toStr = toDate.toISOString();
   let teamFilter = sql`1=1`;
@@ -405,9 +357,7 @@ export async function getTrends(
 
   if (metric === "incidents") {
     const severityFilter =
-      severity && severity !== "all"
-        ? sql`AND severity = ${severity}`
-        : sql``;
+      severity && severity !== "all" ? sql`AND severity = ${severity}` : sql``;
     const rows = await db.execute(sql`
       SELECT date_trunc('week', started_at)::date AS date, severity, count(*) AS value
       FROM incidents
@@ -433,10 +383,7 @@ export async function getTeamDetail(
   from?: string,
   to?: string
 ): Promise<TeamDetail | null> {
-  const fromDate = from
-    ? new Date(`${from}T00:00:00.000Z`)
-    : new Date(Date.now() - 30 * 86400000);
-  const toDate = to ? new Date(`${to}T23:59:59.999Z`) : new Date();
+  const { fromDate, toDate } = parseDateRange(from, to);
 
   const teamRows = await db
     .select()
@@ -542,30 +489,28 @@ export async function getTeamDetail(
       )
     );
 
-  const leadTimeResult = repoIds.length
+    const leadTimeResult = repoIds.length
     ? await db
         .select({
           medianHours: sql<number>`COALESCE(
-          percentile_cont(0.5) WITHIN GROUP (
-            ORDER BY EXTRACT(EPOCH FROM (merged_at - first_commit_at)) / 3600
-          ), 0
-        )`,
+            percentile_cont(0.5) WITHIN GROUP (
+              ORDER BY EXTRACT(EPOCH FROM (${pullRequests.mergedAt} - ${pullRequests.firstCommitAt})) / 3600
+            ), 0
+          )`,
         })
         .from(pullRequests)
         .where(
           and(
-            sql`${pullRequests.mergedAt} IS NOT NULL`,
-            sql`${pullRequests.firstCommitAt} IS NOT NULL`,
-            sql`${pullRequests.repositoryId} IN (${sql.join(
-              repoIds.map((id) => sql`${id}`),
-              sql`, `
-            )})`,
+            isNotNull(pullRequests.mergedAt),
+            isNotNull(pullRequests.firstCommitAt),
+            eq(pullRequests.status, "merged"),
+            inArray(pullRequests.repositoryId, repoIds),
             gte(pullRequests.mergedAt, fromDate),
             lte(pullRequests.mergedAt, toDate)
           )
         )
     : [{ medianHours: 0 }];
-    
+
   return {
     id: team.id,
     name: team.name,

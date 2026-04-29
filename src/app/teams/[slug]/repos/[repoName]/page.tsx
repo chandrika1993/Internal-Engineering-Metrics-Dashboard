@@ -256,6 +256,7 @@ export default function RepositoryDetailPage() {
                   <button
                     disabled={prPage === 1}
                     onClick={() => setPrPage((p) => p - 1)}
+                    aria-label="Previous page"
                     className="p-2 rounded-lg border bg-white disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"
                   >
                     <ChevronLeft size={16} />
@@ -265,6 +266,7 @@ export default function RepositoryDetailPage() {
                       prPage * PAGE_SIZE >= repo.mergedPullRequests.length
                     }
                     onClick={() => setPrPage((p) => p + 1)}
+                    aria-label="Next page"
                     className="p-2 rounded-lg border bg-white disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"
                   >
                     <ChevronRight size={16} />
