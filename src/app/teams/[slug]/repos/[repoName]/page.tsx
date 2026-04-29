@@ -70,7 +70,7 @@ export default function RepositoryDetailPage() {
   ).length;
 
   return (
-    <div className="max-w-7xl mx-auto p-4 sm:p-6 md:p-8 space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500">
       {/* ─── HEADER ─── */}
       <header className="space-y-4">
         <Breadcrumb
