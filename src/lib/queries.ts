@@ -153,7 +153,7 @@ export async function getTeamsWithStatsPaginated({
   const incidentCountSq = db
     .select({
       teamId: incidents.teamId,
-      openIncidents: sql<number>`count(*)`.as("incident_count"),
+      openIncidents: sql<number>`count(*)`.as("open_incidents"),
     })
     .from(incidents)
     .where(ne(incidents.status, "resolved"))
@@ -171,7 +171,10 @@ export async function getTeamsWithStatsPaginated({
     ? eq(teams.department, department)
     : undefined;
 
-  const whereClause = and(searchFilter, departmentFilter);
+  const whereClause = and(
+    ...(searchFilter ? [searchFilter] : []),
+    ...(departmentFilter ? [departmentFilter] : [])
+  );
 
   const sortableColumns: Record<string, SQL> = {
     name: sql`${teams.name}`,
@@ -321,81 +324,117 @@ export async function getTrends(
   severity?: string
 ): Promise<TrendPoint[]> {
   const { fromDate, toDate } = parseDateRange(from, to);
-  const fromStr = fromDate.toISOString();
-  const toStr = toDate.toISOString();
-  let teamFilter = sql`1=1`;
+
+  // -----------------------------
+  // Resolve team → repo IDs
+  // -----------------------------
+  let repoIds: number[] = [];
+  let teamId: number | null = null;
+
   if (teamSlug) {
     const teamRow = await db
       .select({ id: teams.id })
       .from(teams)
       .where(eq(teams.slug, teamSlug))
       .limit(1);
-    if (teamRow.length === 0) return [];
-    const teamId = teamRow[0].id;
 
-    if (metric === "incidents") {
-      teamFilter = eq(incidents.teamId, teamId);
-    } else {
-      const repoIds = await db
-        .select({ id: repositories.id })
-        .from(repositories)
-        .where(eq(repositories.teamId, teamId));
-      if (repoIds.length === 0) return [];
-      const ids = repoIds.map((r) => r.id);
-      if (metric === "deployments") {
-        teamFilter = inArray(deployments.repositoryId, ids);
-      } else {
-        teamFilter = inArray(pullRequests.repositoryId, ids);
-      }
-    }
+    if (!teamRow.length) return [];
+
+    teamId = teamRow[0].id;
+
+    const repos = await db
+      .select({ id: repositories.id })
+      .from(repositories)
+      .where(eq(repositories.teamId, teamId));
+
+    repoIds = repos.map((r) => r.id);
+
+    if (metric !== "incidents" && repoIds.length === 0) return [];
   }
 
+  // -----------------------------
+  // DEPLOYMENTS
+  // -----------------------------
   if (metric === "deployments") {
-    const rows = await db.execute(sql`
-      SELECT date_trunc('week', deployed_at)::date AS date, count(*) AS value
-      FROM deployments
-      WHERE deployed_at >= ${fromStr} AND deployed_at <= ${toStr}
-        AND ${teamFilter}
-      GROUP BY 1 ORDER BY 1
-    `);
-    return (rows as unknown as { date: string; value: number }[]).map((r) => ({
+    const conditions = [
+      gte(deployments.deployedAt, fromDate),
+      lte(deployments.deployedAt, toDate),
+      ...(repoIds.length ? [inArray(deployments.repositoryId, repoIds)] : []),
+    ];
+
+    const deployWeek = sql<string>`date_trunc('week', ${deployments.deployedAt})::date`;
+    const rows = await db
+      .select({
+        date: deployWeek,
+        value: sql<number>`count(*)`,
+      })
+      .from(deployments)
+      .where(and(...conditions))
+      .groupBy(deployWeek)
+      .orderBy(deployWeek);
+
+    return rows.map((r) => ({
       date: String(r.date),
       value: Number(r.value),
     }));
   }
 
+  // -----------------------------
+  // PRs
+  // -----------------------------
   if (metric === "prs") {
-    const rows = await db.execute(sql`
-      SELECT date_trunc('week', merged_at)::date AS date, count(*) AS value
-      FROM pull_requests
-      WHERE merged_at IS NOT NULL
-        AND merged_at >= ${fromStr} AND merged_at <= ${toStr}
-        AND ${teamFilter}
-      GROUP BY 1 ORDER BY 1
-    `);
-    return (rows as unknown as { date: string; value: number }[]).map((r) => ({
+    const conditions = [
+      isNotNull(pullRequests.mergedAt),
+      gte(pullRequests.mergedAt, fromDate),
+      lte(pullRequests.mergedAt, toDate),
+      eq(pullRequests.status, "merged"),
+      ...(repoIds.length ? [inArray(pullRequests.repositoryId, repoIds)] : []),
+    ];
+
+    const rows = await db
+      .select({
+        date: sql<string>`date_trunc('week', ${pullRequests.mergedAt})::date`,
+        value: sql<number>`count(*)`,
+      })
+      .from(pullRequests)
+      .where(and(...conditions))
+      .groupBy(sql`date_trunc('week', ${pullRequests.mergedAt})`)
+      .orderBy(sql`date_trunc('week', ${pullRequests.mergedAt})`);
+
+    return rows.map((r) => ({
       date: String(r.date),
       value: Number(r.value),
     }));
   }
 
+  // -----------------------------
+  // INCIDENTS
+  // -----------------------------
   if (metric === "incidents") {
-    const severityFilter =
-      severity && severity !== "all" ? sql`AND severity = ${severity}` : sql``;
-    const rows = await db.execute(sql`
-      SELECT date_trunc('week', started_at)::date AS date, severity, count(*) AS value
-      FROM incidents
-      WHERE started_at >= ${fromStr} AND started_at <= ${toStr}
-        AND ${teamFilter}
-        ${severityFilter}
-      GROUP BY 1, 2 ORDER BY 1
-    `);
-    return (
-      rows as unknown as { date: string; severity: string; value: number }[]
-    ).map((r) => ({
+    const conditions = [
+      gte(incidents.startedAt, fromDate),
+      lte(incidents.startedAt, toDate),
+      ...(teamId ? [eq(incidents.teamId, teamId)] : []),
+      ...(severity && severity !== "all"
+        ? [eq(incidents.severity, severity)]
+        : []),
+    ];
+
+    const rows = await db
+      .select({
+        date: sql<string>`date_trunc('week', ${incidents.startedAt})::date`,
+        severity: incidents.severity,
+        value: sql<number>`count(*)`,
+      })
+      .from(incidents)
+      .where(and(...conditions))
+      .groupBy(sql`1`, incidents.severity)
+      .orderBy(sql`1`);
+
+    return rows.map((r) => ({
       date: String(r.date),
       value: Number(r.value),
-      severity: (r.severity as TrendPoint["severity"]) ?? undefined,
+      severity: r.severity as TrendPoint["severity"],
     }));
   }
 
@@ -423,6 +462,22 @@ export async function getTeamDetail(
     .from(repositories)
     .where(eq(repositories.teamId, team.id));
 
+  if (repos.length === 0) {
+    return {
+      id: team.id,
+      name: team.name,
+      slug: team.slug,
+      department: team.department,
+      repositories: [],
+      recentIncidents: [],
+      metrics: {
+        deploymentsPerWeek: 0,
+        leadTimeHours: 0,
+        prThroughput: 0,
+        incidentCount: 0,
+      },
+    };
+  }
   const repoStats = await Promise.all(
     repos.map(async (repo) => {
       const deployCount = await db
@@ -458,13 +513,7 @@ export async function getTeamDetail(
   const recentIncidents = await db
     .select()
     .from(incidents)
-    .where(
-      and(
-        eq(incidents.teamId, team.id),
-        gte(incidents.startedAt, fromDate),
-        lte(incidents.startedAt, toDate)
-      )
-    )
+    .where(eq(incidents.teamId, team.id))
     .orderBy(desc(incidents.startedAt))
     .limit(10);
 
@@ -476,10 +525,7 @@ export async function getTeamDetail(
         .from(deployments)
         .where(
           and(
-            sql`${deployments.repositoryId} IN (${sql.join(
-              repoIds.map((id) => sql`${id}`),
-              sql`, `
-            )})`,
+            inArray(deployments.repositoryId, repoIds),
             gte(deployments.deployedAt, fromDate),
             lte(deployments.deployedAt, toDate)
           )
@@ -492,10 +538,7 @@ export async function getTeamDetail(
         .from(pullRequests)
         .where(
           and(
-            sql`${pullRequests.repositoryId} IN (${sql.join(
-              repoIds.map((id) => sql`${id}`),
-              sql`, `
-            )})`,
+            inArray(pullRequests.repositoryId, repoIds),
             gte(pullRequests.mergedAt, fromDate),
             lte(pullRequests.mergedAt, toDate)
           )
@@ -513,27 +556,30 @@ export async function getTeamDetail(
       )
     );
 
-  const leadTimeResult = repoIds.length
-    ? await db
-        .select({
-          medianHours: sql<number>`COALESCE(
-            percentile_cont(0.5) WITHIN GROUP (
-              ORDER BY EXTRACT(EPOCH FROM (${pullRequests.mergedAt} - ${pullRequests.firstCommitAt})) / 3600
-            ), 0
-          )`,
-        })
-        .from(pullRequests)
-        .where(
-          and(
-            isNotNull(pullRequests.mergedAt),
-            isNotNull(pullRequests.firstCommitAt),
-            eq(pullRequests.status, "merged"),
-            inArray(pullRequests.repositoryId, repoIds),
-            gte(pullRequests.mergedAt, fromDate),
-            lte(pullRequests.mergedAt, toDate)
-          )
+  const leadTimeResult = await db
+    .select({
+      medianHours: sql<number>`
+        COALESCE(
+          percentile_cont(0.5) WITHIN GROUP (
+            ORDER BY EXTRACT(EPOCH FROM (
+              ${pullRequests.mergedAt} - ${pullRequests.firstCommitAt}
+            )) / 3600
+          ),
+          0
         )
-    : [{ medianHours: 0 }];
+      `,
+    })
+    .from(pullRequests)
+    .where(
+      and(
+        isNotNull(pullRequests.mergedAt),
+        isNotNull(pullRequests.firstCommitAt),
+        eq(pullRequests.status, "merged"),
+        inArray(pullRequests.repositoryId, repoIds),
+        gte(pullRequests.mergedAt, fromDate),
+        lte(pullRequests.mergedAt, toDate)
+      )
+    );
 
   return {
     id: team.id,
