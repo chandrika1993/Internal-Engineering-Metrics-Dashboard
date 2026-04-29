@@ -24,6 +24,7 @@ import {
   asc,
   SQL,
   lte,
+  isNotNull,
 } from "drizzle-orm";
 
 export async function getTeamsWithStats(): Promise<TeamWithStats[]> {
@@ -586,4 +587,19 @@ export async function getTeamDetail(
       incidentCount: Number(incidentCount[0]?.count ?? 0),
     },
   };
+}
+
+/**
+ * Returns a sorted list of distinct, non-null department names.
+ * Used to populate the department filter dropdown without depending
+ * on the current page's subset of teams.
+ */
+export async function getDepartments(): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ department: teams.department })
+    .from(teams)
+    .where(isNotNull(teams.department))
+    .orderBy(asc(teams.department));
+
+  return rows.map((r) => r.department as string);
 }
