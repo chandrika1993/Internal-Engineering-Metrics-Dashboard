@@ -56,3 +56,8 @@ src/
   lib/                    # Query functions, utilities
   types/                  # Shared TypeScript types
 ```
+
+### Complete Documentation
+
+[Screenshoots - Small and Big Screens](/documentation/screenshots)
+
