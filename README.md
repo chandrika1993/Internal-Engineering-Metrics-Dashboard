@@ -1,4 +1,4 @@
-# DevPulse — Internal Engineering Metrics Dashboard
+# Internal Engineering Metrics Dashboard
 
 ## Quick Start
 
