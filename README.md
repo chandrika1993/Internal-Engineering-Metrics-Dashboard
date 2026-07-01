@@ -60,4 +60,5 @@ src/
 ### Complete Documentation
 
 [Screenshoots - Small and Big Screens](/documentation/screenshots)
+[Documentation](/documentation/documentation.md)
 
