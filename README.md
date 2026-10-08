@@ -1,5 +1,9 @@
 # Internal Engineering Metrics Dashboard
 
+An internal engineering metrics dashboard I designed and built to help engineering leaders understand delivery health without moving between deployment, pull-request, and incident tools. The product combines an operational overview, server-driven team analytics, configurable date ranges, cross-team comparison, and repository-level drill-downs in one responsive interface.
+
+Rather than treating metrics as a collection of static charts, the project focuses on making the underlying data layer reliable and scalable. Every dashboard interaction, from filtering a team list to changing the incident severity, is reflected consistently across the API, query layer, and UI.
+
 ## Quick Start
 
 ### Prerequisites
