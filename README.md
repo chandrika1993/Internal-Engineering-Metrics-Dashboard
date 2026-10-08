@@ -52,6 +52,7 @@ src/
       teams/              # GET /api/teams, GET /api/teams/[slug]
       metrics/            # GET /api/metrics/overview, GET /api/metrics/trends
     teams/[slug]/         # Team detail page
+      repos/[repoName]/   # Repository drill-down page
     compare/              # Team comparison page
     page.tsx              # Dashboard overview
     layout.tsx            # Root layout with nav
