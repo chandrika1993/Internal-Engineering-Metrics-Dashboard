@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import MainNav from "@/components/MainNav";
+import DemoMode from "@/demo/DemoMode";
 import "./globals.css";
 
 // Default metadata for the application. This is used for SEO and tab information.
@@ -39,6 +40,7 @@ export default function RootLayout({
         <main className="max-w-7xl mx-auto p-4 sm:p-6 md:p-8">
           {children}
         </main>
+        <DemoMode />
       </body>
     </html>
   );

@@ -10,9 +10,12 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "build:demo": "node scripts/build-demo.mjs",
+    "deploy:demo": "npm run build:demo && firebase deploy --only hosting:demo"
   },
   "dependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@tanstack/react-table": "^8.21.3",
     "db-migrate": "^0.11.14",
     "drizzle-orm": "^0.39.3",
