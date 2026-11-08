@@ -34,3 +34,6 @@ pnpm-debug.log*
 
 # env files
 .env
+
+# Firebase
+.firebase/

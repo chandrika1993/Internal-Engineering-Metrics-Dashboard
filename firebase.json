@@ -1,0 +1,13 @@
+{
+  "hosting": {
+    "target": "demo",
+    "public": "out",
+    "cleanUrls": true,
+    "trailingSlash": false,
+    "headers": [
+      { "source": "/_next/static/**", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
+      { "source": "/pglite/**", "headers": [{ "key": "Cache-Control", "value": "public, max-age=2592000" }] },
+      { "source": "**/*.html", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+    ]
+  }
+}

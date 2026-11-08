@@ -4,6 +4,21 @@ An internal engineering metrics dashboard I designed and built to help engineeri
 
 Rather than treating metrics as a collection of static charts, the project focuses on making the underlying data layer reliable and scalable. Every dashboard interaction, from filtering a team list to changing the incident severity, is reflected consistently across the API, query layer, and UI.
 
+## Live Demo
+
+**[chandrika-metrics-demo.web.app](https://chandrika-metrics-demo.web.app)**
+
+The demo is a static build of the same app, with no server. PostgreSQL runs in the browser through [PGlite](https://pglite.dev) (Postgres compiled to WebAssembly). On first load the page runs the project's Drizzle migration, fills the tables with the same seed script as `npm run db:seed` (with a fixed random seed, so the data is the same on every visit), and then answers each `/api/*` request by calling the real route handlers and queries in `src/app/api` and `src/lib`. The demo wiring lives in `src/demo`.
+
+Build and deploy it to Firebase Hosting (free Spark plan):
+
+```bash
+firebase hosting:sites:create chandrika-metrics-demo   # once
+npm run deploy:demo
+```
+
+`npm run build:demo` alone writes the static site to `out/`.
+
 ## Quick Start
 
 ### Prerequisites
